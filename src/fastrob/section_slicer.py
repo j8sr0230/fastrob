@@ -37,7 +37,7 @@ if __name__ == "__main__":
                     offset += offset
 
             Part.show(Part.makeCompound(offset_paths))
-            Part.show(sliced_planes[-1])
+            # Part.show(sliced_planes[-1])
 
         else:
             print("Selected object has no wires.")
