@@ -28,7 +28,15 @@ if __name__ == "__main__":
             for wires in sorted_wires:
                 sliced_planes.append(Part.Face(wires, "Part::FaceMakerBullseye"))
 
-            # Part.show(Part.makeCompound(sliced_planes))
+            offset_paths: list[Part.Wire] = []
+            for plane in sliced_planes:
+                offset: float = -5
+                while offset > -50:
+                    Part.show(Part.makeCompound(plane.makeOffset(offset).Wires))
+                    # offset_paths.extend(plane.makeOffset(offset).Wires)
+                    offset += offset
+
+            Part.show(Part.makeCompound(offset_paths))
             Part.show(sliced_planes[-1])
 
         else:
