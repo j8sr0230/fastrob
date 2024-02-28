@@ -17,7 +17,18 @@ if __name__ == "__main__":
 
         if selection is not None and hasattr(selection, "Shape") and hasattr(selection.Shape, "Wires"):
             selection: App.GeoFeature = cast(App.GeoFeature, selection)
-            print(selection.Shape.Wires)
+
+            wires: np.ndarray = np.array(selection.Shape.Wires, dtype=object)
+            section_heights: np.ndarray = np.round([w.CenterOfGravity.z for w in wires], 2)
+            unique, counts = np.unique(section_heights, return_counts=True)
+            # height_occurrence: dict[float, int] = dict(zip(unique, counts))
+
+            sorted_wires: np.ndarray = np.split(wires, np.add.accumulate(counts)[:-1])
+            planes: list[Part.Face] = []
+            for wires in sorted_wires:
+                planes.append(Part.Face(wires, "Part::FaceMakerBullseye"))
+
+            Part.show(Part.makeCompound(planes))
 
         else:
             print("Selected object has no wires.")
