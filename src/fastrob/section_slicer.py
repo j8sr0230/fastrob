@@ -24,11 +24,12 @@ if __name__ == "__main__":
             # height_occurrence: dict[float, int] = dict(zip(unique, counts))
 
             sorted_wires: np.ndarray = np.split(wires, np.add.accumulate(counts)[:-1])
-            planes: list[Part.Face] = []
+            sliced_planes: list[Part.Face] = []
             for wires in sorted_wires:
-                planes.append(Part.Face(wires, "Part::FaceMakerBullseye"))
+                sliced_planes.append(Part.Face(wires, "Part::FaceMakerBullseye"))
 
-            Part.show(Part.makeCompound(planes))
+            # Part.show(Part.makeCompound(sliced_planes))
+            Part.show(sliced_planes[-1])
 
         else:
             print("Selected object has no wires.")
