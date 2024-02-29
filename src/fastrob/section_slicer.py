@@ -37,28 +37,32 @@ if __name__ == "__main__":
                     bb_v1: App.Vector = App.Vector(bb_offset[0] + np.array([bb_offset[1][0], 0, 0]))
                     bb_v2: App.Vector = App.Vector(bb_offset[0] + np.array([bb_offset[1][0], bb_offset[1][1], 0]))
                     bb_v3: App.Vector = App.Vector(bb_offset[0] + np.array([0, bb_offset[1][1], 0]))
-                    bb_l0 = Part.LineSegment(bb_v0, bb_v1)
-                    bb_l2 = Part.LineSegment(bb_v3, bb_v2)
 
-                    line_count: int = int(round(bb_l0.length() / SEAM_WIDTH, 0))
-                    bottom_points: list[App.Vector] = bb_l0.discretize(Number=line_count)
-                    top_points: list[App.Vector] = bb_l2.discretize(Number=line_count)
+                    bb_x_bottom: Part.Edge = Part.Edge(Part.LineSegment(bb_v0, bb_v1))
+                    bb_x_top: Part.Edge = Part.Edge(Part.LineSegment(bb_v3, bb_v2))
 
-                    line_points: list[tuple] = list(zip(bottom_points, top_points))
-                    lines: list[Part.Edge] = []
-                    for point_set in line_points:
-                        line: Part.Edge = Part.Edge(Part.LineSegment(point_set[0], point_set[1]))
-                        lines.append(line)
-                    lines: Part.Compound = Part.makeCompound(lines)
-                    lines.rotate(face.CenterOfGravity, App.Vector(0, 0, 1), BB_ANGLE_DEG)
+                    hatch_count: int = int(round(bb_x_bottom.Length / SEAM_WIDTH, 0))
+                    x_bottom_points: list[App.Vector] = bb_x_bottom.discretize(Number=hatch_count)
+                    x_top_points: list[App.Vector] = bb_x_top.discretize(Number=hatch_count)
 
-                    line_map: dict[int, list[Part.Edge]] = {}
-                    for idx, line in enumerate(lines.Edges):
-                        inner_lines: list[Part.Edge] = Part.Edge(line).common(face).Edges
-                        line_map[idx] = inner_lines
+                    hatch_points: list[tuple] = list(zip(x_bottom_points, x_top_points))
+                    hatch_lines: list[Part.Edge] = []
+                    for point_set in hatch_points:
+                        hatch_line: Part.Edge = Part.Edge(Part.LineSegment(point_set[0], point_set[1]))
+                        hatch_lines.append(hatch_line)
+                    hatch_lines: Part.Compound = Part.makeCompound(hatch_lines)
+                    hatch_lines.rotate(face.CenterOfGravity, App.Vector(0, 0, 1), BB_ANGLE_DEG)
 
-                    Part.show(Part.makeCompound(list(itertools.chain.from_iterable(line_map.values()))))
-                    print(line_map)
+                    hatch_line_map: dict[int, list[Part.Edge]] = {}
+                    for idx, hatch_line in enumerate(hatch_lines.Edges):
+                        inner_line_set: list[Part.Edge] = Part.Edge(hatch_line).common(face).Edges
+                        hatch_line_map[idx] = inner_line_set
+
+                    inner_hatch: Part.Compound = Part.makeCompound(
+                        list(itertools.chain.from_iterable(hatch_line_map.values()))
+                    )
+                    Part.show(inner_hatch)
+                    print(hatch_line_map)
                 else:
                     print("Selection has no wires.")
         else:
