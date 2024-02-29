@@ -1,9 +1,11 @@
-from typing import cast
+from typing import Any, cast
 import sys
 import os
 
 import PySide2.QtCore as QtCore
 import PySide2.QtWidgets as QtWidgets
+
+from py_openshowvar import openshowvar
 
 import FreeCAD as App
 
@@ -17,6 +19,7 @@ class VarProxyClient(QtWidgets.QWidget):
         super().__init__(parent)
 
         self._robot_ctrl: RobotController = robot_ctrl
+        self._client: Any = None
 
         self.setWindowTitle("VarProxy Client")
         self.setWindowFlag(QtCore.Qt.WindowStaysOnTopHint)
@@ -32,13 +35,13 @@ class VarProxyClient(QtWidgets.QWidget):
         cast(QtCore.SignalInstance, self._start_button.clicked).connect(self.on_start)
         cast(QtCore.SignalInstance, self._stop_button.clicked).connect(self.on_stop)
 
-    @staticmethod
-    def on_start() -> None:
+    def on_start(self) -> None:
         print("Started")
+        self._client = openshowvar('192.168.19.132', 7001)
 
-    @staticmethod
-    def on_stop() -> None:
+    def on_stop(self) -> None:
         print("Stopped")
+        self._client.close()
 
 
 if __name__ == "__main__":
