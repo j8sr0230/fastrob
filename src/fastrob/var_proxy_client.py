@@ -1,6 +1,7 @@
 from typing import Any, cast
 import sys
 import os
+import socket
 
 import numpy as np
 
@@ -40,12 +41,30 @@ class VarProxyClient(QtWidgets.QWidget):
         cast(QtCore.SignalInstance, self._request_timer.timeout).connect(self.request_data)
 
     def on_start(self) -> None:
-        print("Started listening ...")
-        self._client: Any = openshowvar("192.168.1.50", 7000)
+        try:
+            test_connection = socket.create_connection(("192.168.1.50", 7000), timeout=1)
+            test_connection.close()
 
-        self._request_timer: QtCore.QTimer = QtCore.QTimer()
-        self._request_timer.timeout.connect(self.request_data)
-        self._request_timer.start(50)
+            self._client: openshowvar = openshowvar("192.168.1.50", 7000)
+            if self._client.can_connect:
+                self._request_timer.start(50)
+                print("Start listening ...")
+            else:
+                self.on_stop()
+                print("Can't connect to KUKA VarProxy server.")
+
+        except socket.timeout:
+            print("Server timeout")
+
+        except socket.error:
+            print("Server error.")
+
+    def on_stop(self) -> None:
+        if self._client is not None and self._client.can_connect:
+            self._request_timer.stop()
+            self._client.close()
+            print("Stop listening ...")
+        self._robot_ctrl.reset_axis()
 
     def request_data(self) -> None:
         robot_data: Any = self._client.read("$AXIS_ACT", debug=False)
@@ -54,14 +73,9 @@ class VarProxyClient(QtWidgets.QWidget):
         axis_list_str: list[str] = robot_data_str.split(",")[:6]
         axis_list_deg: list[float] = [float(data_item.split(" ")[-1]) for data_item in axis_list_str]
         axis_array_rad: np.ndarray = np.round(np.radians(axis_list_deg), 2) + np.array([0, np.pi/2, -np.pi/2, 0, 0, 0])
+        axis_array_rad = axis_array_rad * np.array([-1, 1, 1, -1, 1, 1])
         self._robot_ctrl.set_axis(axis_array_rad)
         # print(axis_array_rad)
-
-    def on_stop(self) -> None:
-        print("Stopped listening ...")
-        self._request_timer.stop()
-        self._client.close()
-        self._robot_ctrl.reset_axis()
 
 
 if __name__ == "__main__":
