@@ -2,6 +2,8 @@ from typing import Any, cast
 import sys
 import os
 
+import numpy as np
+
 import PySide2.QtCore as QtCore
 import PySide2.QtWidgets as QtWidgets
 
@@ -20,6 +22,7 @@ class VarProxyClient(QtWidgets.QWidget):
 
         self._robot_ctrl: RobotController = robot_ctrl
         self._client: Any = None
+        self._request_timer: QtCore.QTimer = QtCore.QTimer()
 
         self.setWindowTitle("VarProxy Client")
         self.setWindowFlag(QtCore.Qt.WindowStaysOnTopHint)
@@ -34,14 +37,31 @@ class VarProxyClient(QtWidgets.QWidget):
 
         cast(QtCore.SignalInstance, self._start_button.clicked).connect(self.on_start)
         cast(QtCore.SignalInstance, self._stop_button.clicked).connect(self.on_stop)
+        cast(QtCore.SignalInstance, self._request_timer.timeout).connect(self.request_data)
 
     def on_start(self) -> None:
-        print("Started")
-        self._client = openshowvar('192.168.19.132', 7001)
+        print("Started listening ...")
+        self._client: Any = openshowvar("192.168.1.50", 7000)
+
+        self._request_timer: QtCore.QTimer = QtCore.QTimer()
+        self._request_timer.timeout.connect(self.request_data)
+        self._request_timer.start(50)
+
+    def request_data(self) -> None:
+        robot_data: Any = self._client.read("$AXIS_ACT", debug=False)
+        robot_data_str: str = str(robot_data, "utf-8")
+
+        axis_list_str: list[str] = robot_data_str.split(",")[:6]
+        axis_list_deg: list[float] = [float(data_item.split(" ")[-1]) for data_item in axis_list_str]
+        axis_array_rad: np.ndarray = np.round(np.radians(axis_list_deg), 2) + np.array([0, np.pi/2, -np.pi/2, 0, 0, 0])
+        self._robot_ctrl.set_axis(axis_array_rad)
+        # print(axis_array_rad)
 
     def on_stop(self) -> None:
-        print("Stopped")
+        print("Stopped listening ...")
+        self._request_timer.stop()
         self._client.close()
+        self._robot_ctrl.reset_axis()
 
 
 if __name__ == "__main__":
