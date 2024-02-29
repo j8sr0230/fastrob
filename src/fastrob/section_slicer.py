@@ -8,7 +8,7 @@ import FreeCAD as App
 import Part
 
 BB_OFFSET: int = 5
-BB_ANGLE_DEG: int = 20
+BB_ANGLE_DEG: int = -45
 SEAM_WIDTH: int = 5
 
 if __name__ == "__main__":
