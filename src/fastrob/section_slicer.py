@@ -1,4 +1,5 @@
 from typing import cast
+import itertools
 
 import numpy as np
 
@@ -23,8 +24,9 @@ if __name__ == "__main__":
 
                 if 0 < len(faces) <= len(wires):
                     face: Part.Face = faces[0]
-                    face.rotate(face.CenterOfGravity, App.Vector(0, 0, 1), -BB_ANGLE_DEG)
-                    bb: App.BoundBox = face.optimalBoundingBox()
+                    rot_face: Part.Face = face.copy()
+                    rot_face.rotate(face.CenterOfGravity, App.Vector(0, 0, 1), -BB_ANGLE_DEG)
+                    bb: App.BoundBox = rot_face.optimalBoundingBox()
                     bb: np.ndarray = np.array([[bb.XMin, bb.YMin, bb.ZMin], [bb.XLength, bb.YLength, bb.ZLength]])
                     bb_offset: np.ndarray = np.array([
                         bb[0] - np.array([BB_OFFSET, BB_OFFSET, 0]),
@@ -43,11 +45,20 @@ if __name__ == "__main__":
                     top_points: list[App.Vector] = bb_l2.discretize(Number=line_count)
 
                     line_points: list[tuple] = list(zip(bottom_points, top_points))
-                    lines: list[Part.LineSegment] = []
-                    for line in line_points:
-                        lines.append(Part.LineSegment(line[0], line[1]))
+                    lines: list[Part.Edge] = []
+                    for point_set in line_points:
+                        line: Part.Edge = Part.Edge(Part.LineSegment(point_set[0], point_set[1]))
+                        lines.append(line)
+                    lines: Part.Compound = Part.makeCompound(lines)
+                    lines.rotate(face.CenterOfGravity, App.Vector(0, 0, 1), BB_ANGLE_DEG)
 
-                    Part.show(Part.makeCompound(lines).rotate(face.CenterOfGravity, App.Vector(0, 0, 1), BB_ANGLE_DEG))
+                    line_map: dict[int, list[Part.Edge]] = {}
+                    for idx, line in enumerate(lines.Edges):
+                        inner_lines: list[Part.Edge] = Part.Edge(line).common(face).Edges
+                        line_map[idx] = inner_lines
+
+                    Part.show(Part.makeCompound(list(itertools.chain.from_iterable(line_map.values()))))
+                    print(line_map)
                 else:
                     print("Selection has no wires.")
         else:
