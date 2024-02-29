@@ -7,6 +7,8 @@ import FreeCAD as App
 import Part
 
 BB_OFFSET: int = 5
+BB_ANGLE_DEG: int = 20
+SEAM_WIDTH: int = 5
 
 if __name__ == "__main__":
     if App.ActiveDocument:
@@ -21,27 +23,31 @@ if __name__ == "__main__":
 
                 if 0 < len(faces) <= len(wires):
                     face: Part.Face = faces[0]
+                    face.rotate(face.CenterOfGravity, App.Vector(0, 0, 1), -BB_ANGLE_DEG)
                     bb: App.BoundBox = face.optimalBoundingBox()
-                    bb_np: np.ndarray = np.array([[bb.XMin, bb.YMin, bb.ZMin], [bb.XLength, bb.YLength, bb.ZLength]])
+                    bb: np.ndarray = np.array([[bb.XMin, bb.YMin, bb.ZMin], [bb.XLength, bb.YLength, bb.ZLength]])
                     bb_offset: np.ndarray = np.array([
-                        bb_np[0] - np.array([BB_OFFSET, BB_OFFSET, 0]),
-                        bb_np[1] + 2 * np.array([BB_OFFSET, BB_OFFSET, 0])
+                        bb[0] - np.array([BB_OFFSET, BB_OFFSET, 0]),
+                        bb[1] + 2 * np.array([BB_OFFSET, BB_OFFSET, 0])
                     ])
 
                     bb_v0: App.Vector = App.Vector(bb_offset[0])
                     bb_v1: App.Vector = App.Vector(bb_offset[0] + np.array([bb_offset[1][0], 0, 0]))
                     bb_v2: App.Vector = App.Vector(bb_offset[0] + np.array([bb_offset[1][0], bb_offset[1][1], 0]))
                     bb_v3: App.Vector = App.Vector(bb_offset[0] + np.array([0, bb_offset[1][1], 0]))
-
                     bb_l0 = Part.LineSegment(bb_v0, bb_v1)
-                    bb_l1 = Part.LineSegment(bb_v1, bb_v2)
-                    bb_l2 = Part.LineSegment(bb_v2, bb_v3)
-                    bb_l3 = Part.LineSegment(bb_v3, bb_v0)
+                    bb_l2 = Part.LineSegment(bb_v3, bb_v2)
 
-                    s_bb: Part.Shape = Part.Shape([bb_l0, bb_l1, bb_l2, bb_l3])
-                    w_bb = Part.Wire(s_bb.Edges)
+                    line_count: int = int(round(bb_l0.length() / SEAM_WIDTH, 0))
+                    bottom_points: list[App.Vector] = bb_l0.discretize(Number=line_count)
+                    top_points: list[App.Vector] = bb_l2.discretize(Number=line_count)
 
-                    Part.show(w_bb)
+                    line_points: list[tuple] = list(zip(bottom_points, top_points))
+                    lines: list[Part.LineSegment] = []
+                    for line in line_points:
+                        lines.append(Part.LineSegment(line[0], line[1]))
+
+                    Part.show(Part.makeCompound(lines).rotate(face.CenterOfGravity, App.Vector(0, 0, 1), BB_ANGLE_DEG))
                 else:
                     print("Selection has no wires.")
         else:
