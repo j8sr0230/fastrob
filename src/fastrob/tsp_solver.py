@@ -19,13 +19,15 @@ if __name__ == "__main__":
                 selection: Part.Feature = cast(Part.Feature, selection)
                 point_vectors: list[App.Vector] = selection.Points.Points
                 points_array: np.ndarray = np.array(point_vectors)
-                print(points_array)
+
+                point_ids: np.ndarray = np.arange(0, points_array.size)
+                positions_map: dict[int, np.ndarray] = {node: pos for node, pos in zip(point_ids, points_array)}
 
                 G: nx.Graph = nx.Graph()
-                G.add_node(points_array)
+                G.add_nodes_from(point_ids)
 
                 fig, ax = plt.subplots(figsize=(10, 7))
-                nx.draw_networkx(G, position=points_array)
+                nx.draw_networkx(G, position=positions_map, ax=ax)
                 plt.show()
 
                 # start, *rest, end = points_array
