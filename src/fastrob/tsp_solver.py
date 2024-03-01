@@ -1,5 +1,6 @@
 from typing import cast
 
+import numpy as np
 import networkx as nx
 import matplotlib.pyplot as plt
 
@@ -17,14 +18,14 @@ if __name__ == "__main__":
                 selection: Part.Feature = cast(Part.Feature, selection)
                 point_vectors: list[App.Vector] = selection.Points.Points
 
-                point_map: dict[int, App.Vector] = {idx: pos for idx, pos in enumerate(point_vectors)}
+                point_map: dict[int, App.Vector] = {idx: pos[:-1] for idx, pos in enumerate(point_vectors)}
 
                 G: nx.Graph = nx.Graph()
                 G.add_nodes_from(point_map.keys())
 
-                fig, ax = plt.subplots(figsize=(10, 7))
-                nx.draw_networkx(G, pos=point_map, ax=ax)
+                nx.draw(G, pos=point_map, with_labels=True)
                 plt.show()
+
             else:
                 print("Selection has no points.")
         else:
