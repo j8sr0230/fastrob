@@ -29,7 +29,7 @@ if __name__ == "__main__":
 
                 # print(G[0])
 
-                # nx.draw(G, pos=point_map, node_size=10, with_labels=False)
+                nx.draw(G, pos=point_map, node_size=10, with_labels=False)
 
                 tsp: Callable = nx.approximation.traveling_salesman_problem
                 solution: list[int] = tsp(G, nodes=point_map.keys())
