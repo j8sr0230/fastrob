@@ -33,18 +33,18 @@ if __name__ == "__main__":
                 # nx.draw(connected_graphs[0], pos=point_map, node_size=10, with_labels=False)
                 # plt.show()
 
-                for node in connected_graphs[0]:
-                    edge_dict: dict[int, dict] = connected_graphs[0][node]
-                    for neighbour in edge_dict.keys():
-                        dist: float = point_vectors[node].distanceToPoint(point_vectors[neighbour])
-                        connected_graphs[0][node][neighbour]["weight"] = dist
+                # for node in connected_graphs[0]:
+                #     edge_dict: dict[int, dict] = connected_graphs[0][node]
+                #     for neighbour in edge_dict.keys():
+                #         dist: float = point_vectors[node].distanceToPoint(point_vectors[neighbour])
+                #         connected_graphs[0][node][neighbour]["weight"] = dist
 
                 tsp: Callable = nx.approximation.traveling_salesman_problem
-                solution: list[int] = tsp(connected_graphs[0], nodes=connected_graphs[0].nodes)
+                solution: list[int] = tsp(connected_graphs[0], nodes=connected_graphs[0].nodes, cycle=False)
                 H: nx.Graph = nx.Graph()
-                # nx.add_path(H, solution)
-                # nx.draw(H, pos=nx.get_node_attributes(G, "pos"), node_size=10, with_labels=False)
-                # plt.show()
+                nx.add_path(H, solution)
+                nx.draw(H, pos=nx.get_node_attributes(G, "pos"), node_size=10, with_labels=False)
+                plt.show()
             else:
                 print("Selection has no points.")
         else:
