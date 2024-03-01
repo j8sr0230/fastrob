@@ -23,7 +23,7 @@ if __name__ == "__main__":
                 G: nx.Graph = nx.Graph()
                 G.add_nodes_from(point_map.keys())
 
-                nx.draw(G, pos=point_map, with_labels=True)
+                nx.draw(G, pos=point_map, node_size=10, with_labels=False)
                 plt.show()
 
             else:
