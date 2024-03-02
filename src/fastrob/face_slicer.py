@@ -65,8 +65,8 @@ if __name__ == "__main__":
                     )
                     Part.show(hatch_sections_compound)
 
-                    section_group: list[list[Part.Edge]] = [hatch_sections.pop(0)]
-                    section_count: int = len(section_group)
+                    section_groups: list[list[Part.Edge]] = [hatch_sections.pop(0)]
+                    section_count: int = len(section_groups[0])
 
                     sorted_sections: list[list[list[Part.Edge]]] = []
                     while hatch_sections:
@@ -74,10 +74,11 @@ if __name__ == "__main__":
                         next_section_count: int = len(next_section_grp)
 
                         if section_count == next_section_count:
-                            section_group.append(next_section_grp)
+                            section_groups.append(next_section_grp)
                         else:
-                            sorted_sections.append(section_group)
-                            section_group: list[list[Part.Edge]] = [next_section_grp]
+                            sorted_sections.append(section_groups)
+                            section_groups: list[list[Part.Edge]] = [next_section_grp]
+                        section_count: int = next_section_count
 
                     print(sorted_sections)
 
