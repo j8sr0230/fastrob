@@ -45,13 +45,14 @@ if __name__ == "__main__":
                     x_bottom_points: list[App.Vector] = bb_x_bottom.discretize(Number=hatch_count)
                     x_top_points: list[App.Vector] = bb_x_top.discretize(Number=hatch_count)
 
-                    hatch_points: list[tuple] = list(zip(x_bottom_points, x_top_points))
+                    hatch_points: list[tuple[App.Vector, App.Vector]] = list(zip(x_bottom_points, x_top_points))
                     hatch_lines: list[Part.Edge] = []
                     for point_set in hatch_points:
                         hatch_line: Part.Edge = Part.Edge(Part.LineSegment(point_set[0], point_set[1]))
                         hatch_lines.append(hatch_line)
                     hatch_lines: Part.Compound = Part.makeCompound(hatch_lines)
                     hatch_lines.rotate(face.CenterOfGravity, App.Vector(0, 0, 1), BB_ANGLE_DEG)
+                    # Part.show(hatch_lines)
 
                     hatch_line_map: dict[int, list[Part.Edge]] = {}
                     for idx, hatch_line in enumerate(hatch_lines.Edges):
@@ -63,6 +64,13 @@ if __name__ == "__main__":
                     )
                     Part.show(inner_hatch)
                     print(hatch_line_map)
+
+                    hatch_count: int = 0
+                    for line_idx in hatch_line_map.keys():
+                        hatch_count: int = len(hatch_line_map[line_idx])
+                        if hatch_count != 0:
+                            print(hatch_count)
+
                 else:
                     print("Selection has no wires.")
         else:
