@@ -54,22 +54,53 @@ if __name__ == "__main__":
                     hatch_lines.rotate(face.CenterOfGravity, App.Vector(0, 0, 1), BB_ANGLE_DEG)
                     # Part.show(hatch_lines)
 
-                    hatch_line_map: dict[int, list[Part.Edge]] = {}
-                    for idx, hatch_line in enumerate(hatch_lines.Edges):
-                        inner_line_set: list[Part.Edge] = Part.Edge(hatch_line).common(face).Edges
-                        hatch_line_map[idx] = inner_line_set
+                    hatch_sections: list[list[Part.Edge]] = []
+                    for hatch_line in hatch_lines.Edges:
+                        sections: list[Part.Edge] = Part.Edge(hatch_line).common(face).Edges
+                        hatch_sections.append(sections)
+                    # print(hatch_sections)
 
-                    inner_hatch: Part.Compound = Part.makeCompound(
-                        list(itertools.chain.from_iterable(hatch_line_map.values()))
+                    hatch_sections_compound: Part.Compound = Part.makeCompound(
+                        list(itertools.chain.from_iterable(hatch_sections))
                     )
-                    Part.show(inner_hatch)
-                    print(hatch_line_map)
+                    Part.show(hatch_sections_compound)
 
-                    hatch_count: int = 0
-                    for line_idx in hatch_line_map.keys():
-                        hatch_count: int = len(hatch_line_map[line_idx])
-                        if hatch_count != 0:
-                            print(hatch_count)
+                    section_group: list[list[Part.Edge]] = [hatch_sections.pop(0)]
+                    section_count: int = len(section_group)
+
+                    sorted_sections: list[list[list[Part.Edge]]] = []
+                    while hatch_sections:
+                        next_section_grp: list[Part.Edge] = hatch_sections.pop(0)
+                        next_section_count: int = len(next_section_grp)
+
+                        if section_count == next_section_count:
+                            section_group.append(next_section_grp)
+                        else:
+                            sorted_sections.append(section_group)
+                            section_group: list[list[Part.Edge]] = [next_section_grp]
+
+                    print(sorted_sections)
+
+                    # section_count: int = 0
+                    # path_sections: list[Part.Edge] = []
+                    # for hatch_idx in hatch_sections_map.keys():
+                    #     section_count: int = len(hatch_sections_map[hatch_idx])
+                    #     for next_hatch_idx in
+                    #     if hatch_idx + 1 < len(hatch_sections_map.keys()):
+
+                    #     trimmed_hatch: list[Part.Edge] = []
+                    #     section_count: int = len(hatch_sections_map[hatch_idx])
+                    #     while hatch_idx < len(hatch_sections_map.keys()) - 1:
+                    #         pass
+                    #
+                    #
+                    #         next_hatch_count: int =
+                    #         while hatch_count =
+                    #
+                    #         current_segment: Part.Edge = hatch_sections_map[hatch_idx].pop(0)
+                    #
+                    #
+                    #         print(hatch_count)
 
                 else:
                     print("Selection has no wires.")
