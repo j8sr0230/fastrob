@@ -79,7 +79,22 @@ if __name__ == "__main__":
                             paths.extend(zipped_paths)
 
                     for path in paths:
-                        Part.show(Part.makeCompound(path))
+                        for idx, edge in enumerate(path):
+                            if idx % 2 == 0:
+                                print([(v.X, v.Y) for v in edge.Vertexes])
+                                edge.reverse()
+                                print([(v.X, v.Y) for v in edge.Vertexes])
+                                print()
+
+                    # flipped_paths: list[list[Part.Edge]] = []
+                    # while paths:
+                    #     path: list[Part.Edge] = paths.pop(0)
+                    #     flipped_paths.append(
+                    #         [edge if idx % 2 == 0 else edge.reverse() for idx, edge in enumerate(path)]
+                    #     )
+
+                    for path in paths:
+                        Part.show(Part.Compound(path))
                 else:
                     print("Selection has no wires.")
         else:
