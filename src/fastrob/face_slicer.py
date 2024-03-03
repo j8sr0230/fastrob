@@ -6,7 +6,7 @@ import FreeCAD as App
 import Part
 
 BB_OFFSET: int = 5
-BB_ANGLE_DEG: int = 10
+BB_ANGLE_DEG: int = 45
 SEAM_WIDTH: int = 1
 
 if __name__ == "__main__":
@@ -50,29 +50,29 @@ if __name__ == "__main__":
                         if len(common) > 0:
                             trimmed_hatch.append(common)
 
-                    hatch_groups: list[list[list[Part.Edge]]] = []
-                    hatch_group: list[list[Part.Edge]] = [trimmed_hatch.pop(0)]
-                    hatch_group_length: int = len(hatch_group[0])
+                    intersection_groups: list[list[list[Part.Edge]]] = []
+                    intersection_group: list[list[Part.Edge]] = [trimmed_hatch.pop(0)]
+                    intersection_group_length: int = len(intersection_group[0])
                     while trimmed_hatch:
                         next_hatch_grp: list[Part.Edge] = trimmed_hatch.pop(0)
                         next_hatch_grp_length: int = len(next_hatch_grp)
 
-                        if hatch_group_length == next_hatch_grp_length:
-                            hatch_group.append(next_hatch_grp)
+                        if intersection_group_length == next_hatch_grp_length:
+                            intersection_group.append(next_hatch_grp)
                         else:
-                            hatch_groups.append(hatch_group)
-                            hatch_group: list[list[Part.Edge]] = [next_hatch_grp]
-                            hatch_group_length: int = next_hatch_grp_length
+                            intersection_groups.append(intersection_group)
+                            intersection_group: list[list[Part.Edge]] = [next_hatch_grp]
+                            intersection_group_length: int = next_hatch_grp_length
                     else:
-                        hatch_groups.append(hatch_group)
+                        intersection_groups.append(intersection_group)
 
                     sorted_hatch_groups: list[list[Part.Edge]] = []
-                    while hatch_groups:
-                        hatch_group: list[list[Part.Edge]] = hatch_groups.pop(0)
-                        if len(hatch_group[0]) == 1:
-                            sorted_hatch_groups.append(list(itertools.chain.from_iterable(hatch_group)))
+                    while intersection_groups:
+                        intersection_group: list[list[Part.Edge]] = intersection_groups.pop(0)
+                        if len(intersection_group[0]) == 1:
+                            sorted_hatch_groups.append(list(itertools.chain.from_iterable(intersection_group)))
                         else:
-                            zipped_paths: list[tuple[Part.Edge]] = list(zip(*hatch_group))
+                            zipped_paths: list[tuple[Part.Edge]] = list(zip(*intersection_group))
                             zipped_paths: list[list[Part.Edge]] = [list(tpl) for tpl in zipped_paths]
                             sorted_hatch_groups.extend(zipped_paths)
 
