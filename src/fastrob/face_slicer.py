@@ -6,8 +6,8 @@ import FreeCAD as App
 import Part
 
 BB_OFFSET: int = 5
-BB_ANGLE_DEG: int = -45
-SEAM_WIDTH: int = 5
+BB_ANGLE_DEG: int = 10
+SEAM_WIDTH: int = 1
 
 if __name__ == "__main__":
     if App.ActiveDocument:
@@ -28,17 +28,19 @@ if __name__ == "__main__":
                     bb.move(App.Vector(0, 0, BB_OFFSET))
 
                     bb_left_bottom: App.Vector = App.Vector(bb.XMin, bb.YMin, bb.ZMin)
-                    bb_bottom: Part.Edge = Part.Edge(
-                        Part.LineSegment(bb_left_bottom, bb_left_bottom + App.Vector(bb.XLength, 0, 0))
-                    )
+                    bb_left: Part.Edge = Part.Edge(Part.LineSegment(
+                        bb_left_bottom,
+                        bb_left_bottom + App.Vector(0, bb.YLength, 0)
+                    ))
 
-                    hatch_count: int = int(round(bb_bottom.Length / SEAM_WIDTH, 0))
-                    hatch_starts: list[App.Vector] = bb_bottom.discretize(Number=hatch_count)
+                    hatch_count: int = int(round(bb_left.Length / SEAM_WIDTH, 0))
+                    hatch_starts: list[App.Vector] = bb_left.discretize(Number=hatch_count)
                     hatch: list[Part.Edge] = []
                     for start_point in hatch_starts:
-                        hatch.append(
-                            Part.Edge(Part.LineSegment(start_point, start_point + App.Vector(0, bb.YLength)))
-                        )
+                        hatch.append(Part.Edge(Part.LineSegment(
+                            start_point,
+                            start_point + App.Vector(bb.XLength, 0)
+                        )))
                     hatch: Part.Compound = Part.makeCompound(hatch)
                     hatch.rotate(face.CenterOfGravity, App.Vector(0, 0, 1), BB_ANGLE_DEG)
 
@@ -47,10 +49,6 @@ if __name__ == "__main__":
                         common: list[Part.Edge] = hatch_line.common(face).Edges
                         if len(common) > 0:
                             trimmed_hatch.append(common)
-
-                    trimmed_hatch_comp: Part.Compound = Part.makeCompound(
-                        list(itertools.chain.from_iterable(trimmed_hatch))
-                    )
 
                     hatch_groups: list[list[list[Part.Edge]]] = []
                     hatch_group: list[list[Part.Edge]] = [trimmed_hatch.pop(0)]
@@ -68,23 +66,23 @@ if __name__ == "__main__":
                     else:
                         hatch_groups.append(hatch_group)
 
-                    paths: list[list[Part.Edge]] = []
+                    sorted_hatch_groups: list[list[Part.Edge]] = []
                     while hatch_groups:
                         hatch_group: list[list[Part.Edge]] = hatch_groups.pop(0)
                         if len(hatch_group[0]) == 1:
-                            paths.append(list(itertools.chain.from_iterable(hatch_group)))
+                            sorted_hatch_groups.append(list(itertools.chain.from_iterable(hatch_group)))
                         else:
                             zipped_paths: list[tuple[Part.Edge]] = list(zip(*hatch_group))
                             zipped_paths: list[list[Part.Edge]] = [list(tpl) for tpl in zipped_paths]
-                            paths.extend(zipped_paths)
+                            sorted_hatch_groups.extend(zipped_paths)
 
-                    wires: list[Part.Wire] = []
-                    for path in paths:
+                    paths: list[Part.Wire] = []
+                    for sorted_hatch_grp in sorted_hatch_groups:
                         connectors: list[Part.Edge] = []
-                        path_len: int = len(path)
-                        for idx, edge in enumerate(path):
+                        path_len: int = len(sorted_hatch_grp)
+                        for idx, edge in enumerate(sorted_hatch_grp):
                             if idx < path_len - 1:
-                                next_edge: Part.Edge = path[idx + 1]
+                                next_edge: Part.Edge = sorted_hatch_grp[idx + 1]
 
                                 if idx % 2 == 0:
                                     start: App.Vector = App.Vector(edge.Vertexes[1].Point)
@@ -95,11 +93,11 @@ if __name__ == "__main__":
 
                                 connectors.append(Part.Edge(Part.LineSegment(start, end)))
 
-                        wires.append(Part.Wire(Part.__sortEdges__(path + connectors)))
+                        paths.append(Part.Wire(Part.__sortEdges__(sorted_hatch_grp + connectors)))
 
-                    Part.show(Part.Compound(wires))
+                    Part.show(Part.Compound(paths))
                 else:
-                    print("Selection has no wires.")
+                    print("Selection has no paths.")
         else:
             print("Nothing selected.")
     else:
