@@ -95,17 +95,9 @@ if __name__ == "__main__":
 
                                 connectors.append(Part.Edge(Part.LineSegment(start, end)))
 
-                        Part.show(Part.Compound(path + connectors))
+                        wires.append(Part.Wire(Part.__sortEdges__(path + connectors)))
 
-                    # flipped_paths: list[list[Part.Edge]] = []
-                    # while paths:
-                    #     path: list[Part.Edge] = paths.pop(0)
-                    #     flipped_paths.append(
-                    #         [edge if idx % 2 == 0 else edge.reverse() for idx, edge in enumerate(path)]
-                    #     )
-
-                    # for path in paths:
-                    #     Part.show(Part.Compound(path))
+                    Part.show(Part.Compound(wires))
                 else:
                     print("Selection has no wires.")
         else:
