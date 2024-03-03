@@ -1,8 +1,6 @@
 from typing import cast
 import itertools
 
-import numpy as np
-
 import FreeCADGui as Gui
 import FreeCAD as App
 import Part
@@ -77,12 +75,11 @@ if __name__ == "__main__":
                             paths.append(list(itertools.chain.from_iterable(hatch_group)))
                         else:
                             zipped_paths: list[tuple[Part.Edge]] = list(zip(*hatch_group))
-                            print(list(zipped_paths))
+                            zipped_paths: list[list[Part.Edge]] = [list(tpl) for tpl in zipped_paths]
+                            paths.extend(zipped_paths)
 
-                            #paths.append(list(zip(*hatch_group)))
-
-                    # print(paths)
-
+                    for path in paths:
+                        Part.show(Part.makeCompound(path))
                 else:
                     print("Selection has no wires.")
         else:
