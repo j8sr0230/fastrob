@@ -78,13 +78,24 @@ if __name__ == "__main__":
                             zipped_paths: list[list[Part.Edge]] = [list(tpl) for tpl in zipped_paths]
                             paths.extend(zipped_paths)
 
+                    wires: list[Part.Wire] = []
                     for path in paths:
+                        connectors: list[Part.Edge] = []
+                        path_len: int = len(path)
                         for idx, edge in enumerate(path):
-                            if idx % 2 == 0:
-                                print([(v.X, v.Y) for v in edge.Vertexes])
-                                edge.reverse()
-                                print([(v.X, v.Y) for v in edge.Vertexes])
-                                print()
+                            if idx < path_len - 1:
+                                next_edge: Part.Edge = path[idx + 1]
+
+                                if idx % 2 == 0:
+                                    start: App.Vector = App.Vector(edge.Vertexes[1].Point)
+                                    end: App.Vector = App.Vector(next_edge.Vertexes[1].Point)
+                                else:
+                                    start: App.Vector = App.Vector(edge.Vertexes[0].Point)
+                                    end: App.Vector = App.Vector(next_edge.Vertexes[0].Point)
+
+                                connectors.append(Part.Edge(Part.LineSegment(start, end)))
+
+                        Part.show(Part.Compound(path + connectors))
 
                     # flipped_paths: list[list[Part.Edge]] = []
                     # while paths:
@@ -93,8 +104,8 @@ if __name__ == "__main__":
                     #         [edge if idx % 2 == 0 else edge.reverse() for idx, edge in enumerate(path)]
                     #     )
 
-                    for path in paths:
-                        Part.show(Part.Compound(path))
+                    # for path in paths:
+                    #     Part.show(Part.Compound(path))
                 else:
                     print("Selection has no wires.")
         else:
