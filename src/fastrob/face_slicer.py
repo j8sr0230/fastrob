@@ -50,39 +50,39 @@ if __name__ == "__main__":
                         if len(common) > 0:
                             trimmed_hatch.append(common)
 
-                    intersection_groups: list[list[list[Part.Edge]]] = []
-                    intersection_group: list[list[Part.Edge]] = [trimmed_hatch.pop(0)]
-                    intersection_group_length: int = len(intersection_group[0])
+                    section_groups: list[list[list[Part.Edge]]] = []
+                    section_grp: list[list[Part.Edge]] = [trimmed_hatch.pop(0)]
+                    section_grp_count: int = len(section_grp[0])
                     while trimmed_hatch:
                         next_hatch_grp: list[Part.Edge] = trimmed_hatch.pop(0)
                         next_hatch_grp_length: int = len(next_hatch_grp)
 
-                        if intersection_group_length == next_hatch_grp_length:
-                            intersection_group.append(next_hatch_grp)
+                        if section_grp_count == next_hatch_grp_length:
+                            section_grp.append(next_hatch_grp)
                         else:
-                            intersection_groups.append(intersection_group)
-                            intersection_group: list[list[Part.Edge]] = [next_hatch_grp]
-                            intersection_group_length: int = next_hatch_grp_length
+                            section_groups.append(section_grp)
+                            section_grp: list[list[Part.Edge]] = [next_hatch_grp]
+                            section_grp_count: int = next_hatch_grp_length
                     else:
-                        intersection_groups.append(intersection_group)
+                        section_groups.append(section_grp)
 
-                    sorted_hatch_groups: list[list[Part.Edge]] = []
-                    while intersection_groups:
-                        intersection_group: list[list[Part.Edge]] = intersection_groups.pop(0)
-                        if len(intersection_group[0]) == 1:
-                            sorted_hatch_groups.append(list(itertools.chain.from_iterable(intersection_group)))
+                    sorted_section_groups: list[list[Part.Edge]] = []
+                    while section_groups:
+                        section_grp: list[list[Part.Edge]] = section_groups.pop(0)
+                        if len(section_grp[0]) == 1:
+                            sorted_section_groups.append(list(itertools.chain.from_iterable(section_grp)))
                         else:
-                            zipped_paths: list[tuple[Part.Edge]] = list(zip(*intersection_group))
-                            zipped_paths: list[list[Part.Edge]] = [list(tpl) for tpl in zipped_paths]
-                            sorted_hatch_groups.extend(zipped_paths)
+                            zipped_sections: list[tuple[Part.Edge]] = list(zip(*section_grp))
+                            zipped_sections: list[list[Part.Edge]] = [list(tpl) for tpl in zipped_sections]
+                            sorted_section_groups.extend(zipped_sections)
 
                     paths: list[Part.Wire] = []
-                    for sorted_hatch_grp in sorted_hatch_groups:
+                    for sorted_section_grp in sorted_section_groups:
                         connectors: list[Part.Edge] = []
-                        path_len: int = len(sorted_hatch_grp)
-                        for idx, edge in enumerate(sorted_hatch_grp):
-                            if idx < path_len - 1:
-                                next_edge: Part.Edge = sorted_hatch_grp[idx + 1]
+                        section_len: int = len(sorted_section_grp)
+                        for idx, edge in enumerate(sorted_section_grp):
+                            if idx < section_len - 1:
+                                next_edge: Part.Edge = sorted_section_grp[idx + 1]
 
                                 if idx % 2 == 0:
                                     start: App.Vector = App.Vector(edge.Vertexes[1].Point)
@@ -93,7 +93,7 @@ if __name__ == "__main__":
 
                                 connectors.append(Part.Edge(Part.LineSegment(start, end)))
 
-                        paths.append(Part.Wire(Part.__sortEdges__(sorted_hatch_grp + connectors)))
+                        paths.append(Part.Wire(Part.__sortEdges__(sorted_section_grp + connectors)))
 
                     Part.show(Part.Compound(paths))
                 else:
