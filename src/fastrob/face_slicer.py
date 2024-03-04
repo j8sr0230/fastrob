@@ -6,9 +6,9 @@ import FreeCAD as App
 import Part
 
 BB_OFFSET: int = 5
-BB_ANGLE_DEG: int = 45
+BB_ANGLE_DEG: int = -45
 SEAM_WIDTH: float = 1
-ZIG_ZAG: bool = False
+ZIG_ZAG: bool = True
 
 if __name__ == "__main__":
     if App.ActiveDocument:
@@ -79,9 +79,11 @@ if __name__ == "__main__":
 
                     paths: list[Part.Wire] = []
                     if ZIG_ZAG:
-                        for sorted_section_grp in sorted_section_groups:
+                        while sorted_section_groups:
+                            sorted_section_grp: list[Part.Edge] = sorted_section_groups.pop(0)
                             connectors: list[Part.Edge] = []
                             section_len: int = len(sorted_section_grp)
+
                             for idx, edge in enumerate(sorted_section_grp):
                                 if idx < section_len - 1:
                                     next_edge: Part.Edge = sorted_section_grp[idx + 1]
@@ -96,7 +98,9 @@ if __name__ == "__main__":
                                     connectors.append(Part.Edge(Part.LineSegment(start, end)))
                             paths.append(Part.Wire(Part.__sortEdges__(sorted_section_grp + connectors)))
                     else:
-                        for sorted_section_grp in sorted_section_groups:
+                        while sorted_section_groups:
+                            sorted_section_grp: list[Part.Edge] = sorted_section_groups.pop(0)
+
                             for idx, edge in enumerate(sorted_section_grp):
                                 if idx % 2 == 0:
                                     edge_points: list[App.Vector] = [App.Vector(v.Point) for v in edge.Vertexes]
