@@ -1,4 +1,4 @@
-from typing import cast
+from typing import Optional, cast
 import itertools
 
 import FreeCADGui as Gui
@@ -106,6 +106,20 @@ class ZigZagFaceSlicer:
         return paths
 
 
+class OffsetFaceSlicer:
+    def __init__(self, face: Part.Face, seam_width: float = 2, path_count: int = 2) -> None:
+        self._face: Part.Face = face
+        self._seam_width: float = seam_width
+        self._path_count: int = path_count
+
+    def slice(self) -> tuple[Part.Face, list[Part.Wire]]:
+        # inner_face: Optional[Part.Face] = None
+
+        inner_face: Optional[Part.Face] = Part.Face(self._face.makeOffset(-self._seam_width))
+
+        return inner_face, inner_face.Wires
+
+
 if __name__ == "__main__":
     if App.ActiveDocument:
         if len(Gui.Selection.getSelection()) > 0:
@@ -118,11 +132,19 @@ if __name__ == "__main__":
 
                 if len(faces) > 0:
                     target_face: Part.Face = faces[0]
-                    face_slicer: ZigZagFaceSlicer = ZigZagFaceSlicer(
-                        face=target_face, angle_deg=-45, seam_width=5, continuous=True
+
+                    # zig_zag_slicer: ZigZagFaceSlicer = ZigZagFaceSlicer(
+                    #     face=target_face, angle_deg=-45, seam_width=5, continuous=True
+                    # )
+                    # tool_paths: list[Part.Wire] = zig_zag_slicer.slice()
+                    # Part.show(Part.Compound(tool_paths))
+
+                    offset_slicer: OffsetFaceSlicer = OffsetFaceSlicer(
+                        face=target_face, seam_width=2
                     )
-                    tool_paths: list[Part.Wire] = face_slicer.slice()
-                    Part.show(Part.Compound(tool_paths))
+                    res_face, offset_paths = offset_slicer.slice()
+                    Part.show(res_face)
+                    Part.show(Part.Compound(offset_paths))
                 else:
                     print("Selection has no face.")
             else:
