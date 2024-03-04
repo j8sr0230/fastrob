@@ -1,4 +1,4 @@
-from typing import Optional, cast
+from typing import cast
 import itertools
 
 import FreeCADGui as Gui
@@ -112,12 +112,28 @@ class OffsetFaceSlicer:
         self._seam_width: float = seam_width
         self._path_count: int = path_count
 
-    def slice(self) -> tuple[Part.Face, list[Part.Wire]]:
-        # inner_face: Optional[Part.Face] = None
+    def slice(self) -> tuple[Part.Shape, list[Part.Wire]]:
+        offset_shapes: list[Part.Shape] = []
+        for i in range(self._path_count):
+            try:
+                offset_shapes.append(self._face.makeOffset2D(
+                    offset=-(i + 1) * self._seam_width,
+                    join=0,
+                    fill=False,
+                    openResult=False,
+                    intersection=False
+                ))
+            except Part.OCCError:
+                print("Maximal offset reached.")
+                break
+            except App.Base.CADKernelError:  # noqa
+                print("Maximal offset reached.")
+                break
 
-        inner_face: Optional[Part.Face] = Part.Face(self._face.makeOffset(-self._seam_width))
+        inner_shape: Part.Shape = offset_shapes[-1]
+        offset_wires: list[Part.Wire] = list(itertools.chain.from_iterable([shp.Wires for shp in offset_shapes]))
 
-        return inner_face, inner_face.Wires
+        return inner_shape, offset_wires
 
 
 if __name__ == "__main__":
@@ -133,18 +149,18 @@ if __name__ == "__main__":
                 if len(faces) > 0:
                     target_face: Part.Face = faces[0]
 
-                    # zig_zag_slicer: ZigZagFaceSlicer = ZigZagFaceSlicer(
-                    #     face=target_face, angle_deg=-45, seam_width=5, continuous=True
-                    # )
-                    # tool_paths: list[Part.Wire] = zig_zag_slicer.slice()
-                    # Part.show(Part.Compound(tool_paths))
-
                     offset_slicer: OffsetFaceSlicer = OffsetFaceSlicer(
-                        face=target_face, seam_width=2
+                        face=target_face, seam_width=2, path_count=3
                     )
-                    res_face, offset_paths = offset_slicer.slice()
-                    Part.show(res_face)
+                    inner_shp, offset_paths = offset_slicer.slice()
                     Part.show(Part.Compound(offset_paths))
+
+                    for inner_face in inner_shp.Faces:
+                        zig_zag_slicer: ZigZagFaceSlicer = ZigZagFaceSlicer(
+                            face=inner_face, angle_deg=-45, seam_width=2, continuous=True
+                        )
+                        filling_path: list[Part.Wire] = zig_zag_slicer.slice()
+                        Part.show(Part.Compound(filling_path))
                 else:
                     print("Selection has no face.")
             else:
