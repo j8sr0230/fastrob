@@ -119,7 +119,7 @@ if __name__ == "__main__":
                 if len(faces) > 0:
                     target_face: Part.Face = faces[0]
                     face_slicer: ZigZagFaceSlicer = ZigZagFaceSlicer(
-                        face=target_face, angle_deg=-45, seam_width=2, continuous=True
+                        face=target_face, angle_deg=-45, seam_width=5, continuous=True
                     )
                     tool_paths: list[Part.Wire] = face_slicer.slice()
                     Part.show(Part.Compound(tool_paths))
