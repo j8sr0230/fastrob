@@ -7,7 +7,8 @@ import Part
 
 BB_OFFSET: int = 5
 BB_ANGLE_DEG: int = 45
-SEAM_WIDTH: int = 1
+SEAM_WIDTH: float = 1
+ZIG_ZAG: bool = False
 
 if __name__ == "__main__":
     if App.ActiveDocument:
@@ -77,23 +78,34 @@ if __name__ == "__main__":
                             sorted_section_groups.extend(zipped_sections)
 
                     paths: list[Part.Wire] = []
-                    for sorted_section_grp in sorted_section_groups:
-                        connectors: list[Part.Edge] = []
-                        section_len: int = len(sorted_section_grp)
-                        for idx, edge in enumerate(sorted_section_grp):
-                            if idx < section_len - 1:
-                                next_edge: Part.Edge = sorted_section_grp[idx + 1]
+                    if ZIG_ZAG:
+                        for sorted_section_grp in sorted_section_groups:
+                            connectors: list[Part.Edge] = []
+                            section_len: int = len(sorted_section_grp)
+                            for idx, edge in enumerate(sorted_section_grp):
+                                if idx < section_len - 1:
+                                    next_edge: Part.Edge = sorted_section_grp[idx + 1]
 
+                                    if idx % 2 == 0:
+                                        start: App.Vector = App.Vector(edge.Vertexes[1].Point)
+                                        end: App.Vector = App.Vector(next_edge.Vertexes[1].Point)
+                                    else:
+                                        start: App.Vector = App.Vector(edge.Vertexes[0].Point)
+                                        end: App.Vector = App.Vector(next_edge.Vertexes[0].Point)
+
+                                    connectors.append(Part.Edge(Part.LineSegment(start, end)))
+                            paths.append(Part.Wire(Part.__sortEdges__(sorted_section_grp + connectors)))
+                    else:
+                        for sorted_section_grp in sorted_section_groups:
+                            for idx, edge in enumerate(sorted_section_grp):
                                 if idx % 2 == 0:
-                                    start: App.Vector = App.Vector(edge.Vertexes[1].Point)
-                                    end: App.Vector = App.Vector(next_edge.Vertexes[1].Point)
+                                    edge_points: list[App.Vector] = [App.Vector(v.Point) for v in edge.Vertexes]
+                                    edge_points.reverse()
+                                    paths.append(Part.Wire(
+                                        [Part.Edge(Part.LineSegment(edge_points[0], edge_points[1]))]
+                                    ))
                                 else:
-                                    start: App.Vector = App.Vector(edge.Vertexes[0].Point)
-                                    end: App.Vector = App.Vector(next_edge.Vertexes[0].Point)
-
-                                connectors.append(Part.Edge(Part.LineSegment(start, end)))
-
-                        paths.append(Part.Wire(Part.__sortEdges__(sorted_section_grp + connectors)))
+                                    paths.append(Part.Wire([edge]))
 
                     Part.show(Part.Compound(paths))
                 else:
