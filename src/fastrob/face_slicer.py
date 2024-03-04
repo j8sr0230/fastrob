@@ -7,7 +7,7 @@ import Part
 
 BB_OFFSET: int = 5
 BB_ANGLE_DEG: int = -45
-SEAM_WIDTH: float = 1
+SEAM_WIDTH: float = 2.5
 ZIG_ZAG: bool = True
 
 if __name__ == "__main__":
@@ -78,9 +78,10 @@ if __name__ == "__main__":
                             sorted_section_groups.extend(zipped_sections)
 
                     paths: list[Part.Wire] = []
-                    if ZIG_ZAG:
-                        while sorted_section_groups:
-                            sorted_section_grp: list[Part.Edge] = sorted_section_groups.pop(0)
+                    while sorted_section_groups:
+                        sorted_section_grp: list[Part.Edge] = sorted_section_groups.pop(0)
+
+                        if ZIG_ZAG:
                             connectors: list[Part.Edge] = []
                             section_len: int = len(sorted_section_grp)
 
@@ -97,10 +98,8 @@ if __name__ == "__main__":
 
                                     connectors.append(Part.Edge(Part.LineSegment(start, end)))
                             paths.append(Part.Wire(Part.__sortEdges__(sorted_section_grp + connectors)))
-                    else:
-                        while sorted_section_groups:
-                            sorted_section_grp: list[Part.Edge] = sorted_section_groups.pop(0)
 
+                        else:
                             for idx, edge in enumerate(sorted_section_grp):
                                 if idx % 2 == 0:
                                     edge_points: list[App.Vector] = [App.Vector(v.Point) for v in edge.Vertexes]
@@ -113,7 +112,9 @@ if __name__ == "__main__":
 
                     Part.show(Part.Compound(paths))
                 else:
-                    print("Selection has no paths.")
+                    print("Selection has no face.")
+            else:
+                print("Selection has no shape.")
         else:
             print("Nothing selected.")
     else:
