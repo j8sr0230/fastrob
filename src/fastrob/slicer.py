@@ -4,6 +4,7 @@ import itertools
 import FreeCADGui as Gui
 import FreeCAD as App
 import Part
+import numpy as np
 
 BB_OFFSET: int = 5
 
@@ -145,26 +146,25 @@ class OffsetFaceSlicer:
 
         return result
 
-    @staticmethod
-    def clean(raw_wires: list[Part.Wire]) -> list[Part.Wire]:
-        print(len(raw_wires))
-        wire_permutation: itertools.permutations = itertools.permutations(raw_wires, 2)
-        print(list(wire_permutation))
+    def adaptive_clean(self, raw_wires: list[Part.Wire]) -> list[Part.Wire]:
+        combinations: itertools.permutations = itertools.permutations(range(len(raw_wires)), 2)
+        unique_combinations: set = set(map(lambda x: tuple(sorted(x)), list(combinations)))
+        unique_combinations_array: np.ndarray = np.array(list(unique_combinations))
 
-        # distances: list[float] = [w.distToShape(outer_wire)[0] for w in inner_wires]
-        # print(distances)
+        distances: np.ndarray = np.round(
+            [raw_wires[item[0]].distToShape(raw_wires[item[1]])[0] for item in unique_combinations_array],
+            1)
 
-        # for idx, distance in enumerate(distances):
-        #     if round(distance, 1) < 2:
-        #         pass
+        invalid_combinations: np.ndarray = unique_combinations_array[distances < self._offsets[0]]
+        invalid_wires: list[list[Part.Wire]] = [
+            [raw_wires[combination[0]], raw_wires[combination[1]]] for combination in invalid_combinations
+        ]
+        invalid_wire_areas: list[list[float]] = [
+            [Part.Face(wire_set[0]).Area, Part.Face(wire_set[1]).Area] for wire_set in invalid_wires
+        ]
+        print(invalid_wires)
+        print(invalid_wire_areas)
 
-        # if any([d <= abs(offset) for d in distance_map]):
-        #     print("Trim")
-        #     inner_result_comp: Part.Compound = Part.Compound(inner_result_wires)
-        #     cutter: Part.Face = Part.Face(outer_result_wire).makeOffset2D(offset, 0, True, False, False)
-        #     trimmed_inner_wires: Part.Shape = inner_result_comp.cut(cutter)
-        #     Part.show(trimmed_inner_wires)
-        # result: Part.Shape = Part.Face(Part.Compound([outer_result_wire]))
         return raw_wires
 
 
@@ -182,19 +182,19 @@ if __name__ == "__main__":
                     target_face: Part.Face = faces[0]
 
                     offset_slicer: OffsetFaceSlicer = OffsetFaceSlicer(
-                        face=target_face, offsets=(1., 2., 3., 4., 5., 5.5)
+                        face=target_face, offsets=(2., 4., 5.)
                     )
                     offset_faces: list[list[Part.Face]] = offset_slicer.slice()
                     offset_contour_faces: list[Part.Face] = list(itertools.chain.from_iterable(offset_faces[:-1]))
                     offset_contour_comp: Part.Compound = Part.Compound(offset_contour_faces)
                     raw_offset_wires: list[Part.Wire] = offset_contour_comp.Wires
-                    cleaned_wires: list[Part.Wire] = offset_slicer.clean(raw_offset_wires)
+                    cleaned_wires: list[Part.Wire] = offset_slicer.adaptive_clean(raw_offset_wires)
                     Part.show(Part.Compound(cleaned_wires))
 
                     remainder_faces: list[Part.Face] = offset_faces[-1]
                     for inner_face in remainder_faces:
                         zig_zag_slicer: ZigZagFaceSlicer = ZigZagFaceSlicer(
-                            face=inner_face, angle_deg=-45, seam_width=0.5, continuous=True
+                            face=inner_face, angle_deg=-45, seam_width=2, continuous=True
                         )
                         filling_path: list[Part.Wire] = zig_zag_slicer.slice()
                         Part.show(Part.Compound(filling_path))
