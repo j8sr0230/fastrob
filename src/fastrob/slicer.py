@@ -128,13 +128,17 @@ class OffsetFaceSlicer:
         if len(result.Faces) == 0:
             raise ValueError
 
-        result_wires: list[Part.Wire] = result.Wires
-        permutation: itertools.permutations = itertools.permutations(result_wires)
-        dist_map: list[tuple[float, list[tuple[App.Vector]]]] = [p[0].distToShape(p[1]) for p in permutation]
+        outer_result_wire: Part.Wire = cast(Part.Wire, result.Faces[0].OuterWire)
+        inner_result_wires: list[Part.Wire] = [w for w in result.Wires if not w.isEqual(outer_result_wire)]
+        distance_map: list = [inner_w.distToShape(outer_result_wire)[0] for inner_w in inner_result_wires]
+        if any([d <= abs(offset) for d in distance_map]):
+            print("Trim")
+            inner_result_comp: Part.Compound = Part.Compound(inner_result_wires)
+            cutter: Part.Face = Part.Face(outer_result_wire).makeOffset2D(offset, 0, True, False, False)
+            trimmed_inner_wires: Part.Shape = inner_result_comp.cut(cutter)
+            Part.show(trimmed_inner_wires)
+            # result: Part.Shape = Part.Face(Part.Compound([outer_result_wire]))
 
-        for d in dist_map:
-            if d[0] < abs(offset):
-                print("Invalid distance at: ", d[1][0][0], "->", d[1][0][1])
 
         return result
 
