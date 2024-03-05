@@ -145,10 +145,19 @@ class OffsetFaceSlicer:
 
         return result
 
-    def post_process(self) -> None:
-        # outer_result_wire: Part.Wire = cast(Part.Wire, result.Faces[0].OuterWire)
-        # inner_result_wires: list[Part.Wire] = [w for w in result.Wires if not w.isEqual(outer_result_wire)]
-        # distance_map: list = [inner_w.distToShape(outer_result_wire)[0] for inner_w in inner_result_wires]
+    @staticmethod
+    def clean(raw_wires: list[Part.Wire]) -> list[Part.Wire]:
+        print(len(raw_wires))
+        wire_permutation: itertools.permutations = itertools.permutations(raw_wires, 2)
+        print(list(wire_permutation))
+
+        # distances: list[float] = [w.distToShape(outer_wire)[0] for w in inner_wires]
+        # print(distances)
+
+        # for idx, distance in enumerate(distances):
+        #     if round(distance, 1) < 2:
+        #         pass
+
         # if any([d <= abs(offset) for d in distance_map]):
         #     print("Trim")
         #     inner_result_comp: Part.Compound = Part.Compound(inner_result_wires)
@@ -156,7 +165,7 @@ class OffsetFaceSlicer:
         #     trimmed_inner_wires: Part.Shape = inner_result_comp.cut(cutter)
         #     Part.show(trimmed_inner_wires)
         # result: Part.Shape = Part.Face(Part.Compound([outer_result_wire]))
-        pass
+        return raw_wires
 
 
 if __name__ == "__main__":
@@ -173,17 +182,19 @@ if __name__ == "__main__":
                     target_face: Part.Face = faces[0]
 
                     offset_slicer: OffsetFaceSlicer = OffsetFaceSlicer(
-                        face=target_face, offsets=(2., 4., 5.)
+                        face=target_face, offsets=(1., 2., 3., 4., 5., 5.5)
                     )
                     offset_faces: list[list[Part.Face]] = offset_slicer.slice()
                     offset_contour_faces: list[Part.Face] = list(itertools.chain.from_iterable(offset_faces[:-1]))
                     offset_contour_comp: Part.Compound = Part.Compound(offset_contour_faces)
-                    Part.show(Part.Compound(offset_contour_comp.Wires))
+                    raw_offset_wires: list[Part.Wire] = offset_contour_comp.Wires
+                    cleaned_wires: list[Part.Wire] = offset_slicer.clean(raw_offset_wires)
+                    Part.show(Part.Compound(cleaned_wires))
 
                     remainder_faces: list[Part.Face] = offset_faces[-1]
                     for inner_face in remainder_faces:
                         zig_zag_slicer: ZigZagFaceSlicer = ZigZagFaceSlicer(
-                            face=inner_face, angle_deg=-45, seam_width=1, continuous=True
+                            face=inner_face, angle_deg=-45, seam_width=0.5, continuous=True
                         )
                         filling_path: list[Part.Wire] = zig_zag_slicer.slice()
                         Part.show(Part.Compound(filling_path))
