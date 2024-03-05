@@ -107,22 +107,49 @@ class ZigZagFaceSlicer:
 
 
 class OffsetFaceSlicer:
-    def __init__(self, face: Part.Face, seam_width: float = 2, path_count: int = 2) -> None:
+    def __init__(self, face: Part.Face, seam_width: float = 2, contours: int = 2) -> None:
         self._face: Part.Face = face
         self._seam_width: float = seam_width
-        self._path_count: int = path_count
+        self._contours: int = contours
+
+    @staticmethod
+    def make_offset_2d(face: Part.Face, offset: float) -> Part.Shape:
+        outer_wire: Part.Wire = cast(Part.Wire, face.OuterWire)
+        inner_wires: list[Part.Wire] = [w for w in face.Wires if not w.isEqual(outer_wire)]
+
+        outer_face: Part.Face = Part.Face(outer_wire)
+        inner_faces: list[Part.Face] = [Part.Face(w) for w in inner_wires]
+        inner_comp: Part.Compound = Part.Compound(inner_faces)
+
+        outer_offset: Part.Face = outer_face.makeOffset2D(offset, 0, False, False, False)
+        inner_offset: Part.Compound = inner_comp.makeOffset2D(-offset, 0, False, False, False)
+
+        result: Part.Shape = outer_offset.cut(inner_offset)
+        if len(result.Faces) == 0:
+            raise ValueError
+
+        result_wires: list[Part.Wire] = result.Wires
+        permutation: itertools.permutations = itertools.permutations(result_wires)
+        dist_map: list[tuple[float, list[tuple[App.Vector]]]] = [p[0].distToShape(p[1]) for p in permutation]
+
+        for d in dist_map:
+            if d[0] < abs(offset):
+                print("Invalid distance at: ", d[1][0][0], "->", d[1][0][1])
+
+        return result
 
     def slice(self) -> tuple[Part.Shape, list[Part.Wire]]:
         offset_shapes: list[Part.Shape] = []
-        for i in range(self._path_count):
+        temp_i: int = 0
+
+        for i in range(self._contours):
             try:
-                offset_shapes.append(self._face.makeOffset2D(
-                    offset=-(i + 1) * self._seam_width,
-                    join=0,
-                    fill=False,
-                    openResult=False,
-                    intersection=False
-                ))
+                temp_i: int = i
+                offset_shapes.append(self.make_offset_2d(self._face, -(i + 1) * self._seam_width))
+            except ValueError:
+                print("To many contours.")
+                offset_shapes: list[Part.Shape] = [self._face]
+                break
             except Part.OCCError:
                 print("Maximal offset reached.")
                 break
@@ -130,10 +157,19 @@ class OffsetFaceSlicer:
                 print("Maximal offset reached.")
                 break
 
-        inner_shape: Part.Shape = offset_shapes[-1]
-        offset_wires: list[Part.Wire] = list(itertools.chain.from_iterable([shp.Wires for shp in offset_shapes]))
+        remaining_shape: Part.Shape = offset_shapes[-1]
+        if remaining_shape is not self._face:
+            try:
+                remaining_shape: Part.Shape = self.make_offset_2d(self._face, -(temp_i + 1.5) * self._seam_width)
+            except ValueError:
+                print("To many contours.")
+            except Part.OCCError:
+                print("Maximal offset reached.")
+            except App.Base.CADKernelError:  # noqa
+                print("Maximal offset reached.")
 
-        return inner_shape, offset_wires
+        offset_wires: list[Part.Wire] = list(itertools.chain.from_iterable([shp.Wires for shp in offset_shapes]))
+        return remaining_shape, offset_wires
 
 
 if __name__ == "__main__":
@@ -150,7 +186,7 @@ if __name__ == "__main__":
                     target_face: Part.Face = faces[0]
 
                     offset_slicer: OffsetFaceSlicer = OffsetFaceSlicer(
-                        face=target_face, seam_width=2, path_count=3
+                        face=target_face, seam_width=2, contours=2
                     )
                     inner_shp, offset_paths = offset_slicer.slice()
                     Part.show(Part.Compound(offset_paths))
