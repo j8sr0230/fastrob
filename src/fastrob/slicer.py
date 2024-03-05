@@ -107,10 +107,9 @@ class ZigZagFaceSlicer:
 
 
 class OffsetFaceSlicer:
-    def __init__(self, face: Part.Face, seam_width: float = 4, contours: int = 2) -> None:
+    def __init__(self, face: Part.Face, offsets: tuple[float, ...] = (4, )) -> None:
         self._face: Part.Face = face
-        self._seam_width: float = seam_width
-        self._contours: int = contours
+        self._offsets: tuple[float] = offsets
 
     @staticmethod
     def make_offset_2d(face: Part.Face, offset: float) -> list[Part.Face]:
@@ -128,12 +127,11 @@ class OffsetFaceSlicer:
             raise ValueError
         return result
 
-    def slice(self) -> list[Part.Face]:
-        result: list[Part.Face] = []
-        for i in range(self._contours):
+    def slice(self) -> list[list[Part.Face]]:
+        result: list[list[Part.Face]] = []
+        for offset in self._offsets:
             try:
-                offset_faces: list[Part.Face] = self.make_offset_2d(self._face, (i + 1) * (self._seam_width / 2))
-                result.extend(offset_faces)
+                result.append(self.make_offset_2d(self._face, offset))
             except ValueError:
                 print("To many contours.")
                 result: list[Part.Face] = [self._face]
@@ -175,13 +173,15 @@ if __name__ == "__main__":
                     target_face: Part.Face = faces[0]
 
                     offset_slicer: OffsetFaceSlicer = OffsetFaceSlicer(
-                        face=target_face, seam_width=4, contours=3
+                        face=target_face, offsets=(2., 4., 5.)
                     )
-                    contour_faces: list[Part.Face] = offset_slicer.slice()
-                    contour_comp: Part.Compound = Part.Compound(contour_faces[:-1])
-                    Part.show(contour_comp)
+                    offset_faces: list[list[Part.Face]] = offset_slicer.slice()
+                    offset_contour_faces: list[Part.Face] = list(itertools.chain.from_iterable(offset_faces[:-1]))
+                    offset_contour_comp: Part.Compound = Part.Compound(offset_contour_faces)
+                    Part.show(Part.Compound(offset_contour_comp.Wires))
 
-                    for inner_face in contour_faces[-1].Faces:
+                    remainder_faces: list[Part.Face] = offset_faces[-1]
+                    for inner_face in remainder_faces:
                         zig_zag_slicer: ZigZagFaceSlicer = ZigZagFaceSlicer(
                             face=inner_face, angle_deg=-45, seam_width=1, continuous=True
                         )
