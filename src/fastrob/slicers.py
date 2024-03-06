@@ -9,6 +9,18 @@ import numpy as np
 BB_OFFSET: int = 5
 
 
+# def layers(solid: Part.Solid, layer_height: float) -> list[list[Part.Face]]:
+#     bb: App.BoundBox = solid.optimalBoundingBox()
+#     bb_left_bottom: App.Vector = App.Vector(bb.XMin, bb.YMin, bb.ZMin)
+#     print(bb_left_bottom, bb.ZLength)
+#
+#     wires: list[Part.Wire] = solid.slice(App.Vector(0, 0, 1), 2)
+#     comp: Part.Compound = Part.Compound(wires)
+#     Part.show(comp)
+#
+#     return [[]]
+
+
 def _offset_faces(face: Part.Face, offset: float) -> list[Part.Face]:
     outer_wire: Part.Wire = cast(Part.Wire, face.OuterWire)
     outer_face: Part.Face = Part.Face(outer_wire)
@@ -189,6 +201,11 @@ if __name__ == "__main__":
         if len(Gui.Selection.getSelection()) > 0:
             selection: App.DocumentObject = Gui.Selection.getSelection()[0]
             print("Selected object:", selection.Label)
+
+            # if hasattr(selection, "Shape"):
+            # selection: Part.Feature = cast(Part.Feature, selection)
+            # target_solid: Part.Solid = selection.Shape.Solids[0]
+            # layers(solid=target_solid, layer_height=2)
 
             if hasattr(selection, "Shape"):
                 selection: Part.Feature = cast(Part.Feature, selection)
