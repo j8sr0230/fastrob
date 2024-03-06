@@ -1,4 +1,4 @@
-from typing import cast
+from typing import Optional, cast
 import itertools
 
 import FreeCADGui as Gui
@@ -116,56 +116,80 @@ class OffsetFaceSlicer:
     def make_offset_2d(face: Part.Face, offset: float) -> list[Part.Face]:
         outer_wire: Part.Wire = cast(Part.Wire, face.OuterWire)
         outer_face: Part.Face = Part.Face(outer_wire)
-        outer_offset: Part.Face = outer_face.makeOffset2D(-offset, 0, False, False, False)
 
         inner_wires: list[Part.Wire] = [inner for inner in face.Wires if not inner.isEqual(outer_wire)]
         inner_faces: list[Part.Face] = [Part.Face(w) for w in inner_wires]
         inner_comp: Part.Compound = Part.Compound(inner_faces)
-        inner_offset: Part.Compound = inner_comp.makeOffset2D(offset, 0, False, False, False)
 
-        result: list[Part.Face] = outer_offset.cut(inner_offset).Faces
-        if len(result) == 0:
-            raise ValueError
-        return result
-
-    def slice(self) -> list[list[Part.Face]]:
-        result: list[list[Part.Face]] = []
-        for offset in self._offsets:
-            try:
-                result.append(self.make_offset_2d(self._face, offset))
-            except ValueError:
-                print("To many contours.")
-                result: list[Part.Face] = [self._face]
-                break
-            except Part.OCCError:
-                print("Maximal offset reached.")
-                break
-            except App.Base.CADKernelError:  # noqa
-                print("Maximal offset reached.")
-                break
+        try:
+            outer_offset: Part.Face = outer_face.makeOffset2D(-offset, 0, False, False, False)
+            inner_offset: Part.Shape = inner_comp.makeOffset2D(offset, 0, False, False, False)
+            cut: Part.Shape = outer_offset.cut(inner_offset)
+            if cut.isValid():
+                result: list[Part.Face] = cut.Faces
+            else:
+                print("Offset creation failed.")
+                result: list[Part.Face] = []
+        except Part.OCCError:
+            print("Offset creation failed.")
+            result: list[Part.Face] = []
+        except App.Base.CADKernelError:  # noqa
+            print("Offset creation failed.")
+            result: list[Part.Face] = []
 
         return result
 
-    def adaptive_clean(self, raw_wires: list[Part.Wire]) -> list[Part.Wire]:
-        combinations: itertools.permutations = itertools.permutations(range(len(raw_wires)), 2)
+    @staticmethod
+    def adaptive_clean(wires: list[Part.Wire], clean_distance: float) -> list[Part.Wire]:
+        combinations: itertools.permutations = itertools.permutations(range(len(wires)), 2)
         unique_combinations: set = set(map(lambda x: tuple(sorted(x)), list(combinations)))
         unique_combinations_array: np.ndarray = np.array(list(unique_combinations))
 
         distances: np.ndarray = np.round(
-            [raw_wires[item[0]].distToShape(raw_wires[item[1]])[0] for item in unique_combinations_array],
+            [wires[item[0]].distToShape(wires[item[1]])[0] for item in unique_combinations_array],
             1)
 
-        invalid_combinations: np.ndarray = unique_combinations_array[distances < self._offsets[0]]
+        invalid_combinations: np.ndarray = unique_combinations_array[distances < clean_distance]
         invalid_wires: list[list[Part.Wire]] = [
-            [raw_wires[combination[0]], raw_wires[combination[1]]] for combination in invalid_combinations
+            [wires[combination[0]], wires[combination[1]]] for combination in invalid_combinations
         ]
         invalid_wire_areas: list[list[float]] = [
             [Part.Face(wire_set[0]).Area, Part.Face(wire_set[1]).Area] for wire_set in invalid_wires
         ]
-        print(invalid_wires)
-        print(invalid_wire_areas)
 
-        return raw_wires
+        for idx, invalid_area_set in enumerate(invalid_wire_areas):
+            if invalid_area_set[0] > invalid_area_set[1]:
+                cut_wire: Part.Wire = invalid_wires[idx][0]
+                invalid_wire: Part.Wire = invalid_wires[idx][1]
+            else:
+                cut_wire: Part.Wire = invalid_wires[idx][1]
+                invalid_wire: Part.Wire = invalid_wires[idx][0]
+
+            trimmed_wire: Optional[Part.Shape] = None
+            try:
+                cutter: Part.Shape = cut_wire.makeOffset2D(-clean_distance, 0, True, False, False)
+                trimmed_wire: Part.Shape = invalid_wire.cut(cutter)
+            except Part.OCCError:
+                pass
+            except App.Base.CADKernelError:  # noqa
+                pass
+
+            if hasattr(trimmed_wire, "Wires") and len(trimmed_wire.Wires) > 0:
+                if invalid_wire in wires:
+                    invalid_idx: int = wires.index(invalid_wire)
+                    wires.remove(invalid_wire)
+                    wires[invalid_idx:invalid_idx] = trimmed_wire.Wires
+
+        return wires
+
+    def slice(self) -> list[list[Part.Face]]:
+        result: list[list[Part.Face]] = []
+        for offset in self._offsets:
+            new_offset_faces: list[Part.Face] = self.make_offset_2d(self._face, offset)
+            if len(new_offset_faces) > 0:
+                result.append(self.make_offset_2d(self._face, offset))
+
+        return result if len(result) > 0 else [[self._face]]
 
 
 if __name__ == "__main__":
@@ -182,19 +206,22 @@ if __name__ == "__main__":
                     target_face: Part.Face = faces[0]
 
                     offset_slicer: OffsetFaceSlicer = OffsetFaceSlicer(
-                        face=target_face, offsets=(2., 4., 5.)
+                        face=target_face, offsets=(9., )
                     )
                     offset_faces: list[list[Part.Face]] = offset_slicer.slice()
-                    offset_contour_faces: list[Part.Face] = list(itertools.chain.from_iterable(offset_faces[:-1]))
+                    if len(offset_faces) > 1:
+                        offset_contour_faces: list[Part.Face] = list(itertools.chain.from_iterable(offset_faces[:-1]))
+                    else:
+                        offset_contour_faces: list[Part.Face] = offset_faces[0]
                     offset_contour_comp: Part.Compound = Part.Compound(offset_contour_faces)
                     raw_offset_wires: list[Part.Wire] = offset_contour_comp.Wires
-                    cleaned_wires: list[Part.Wire] = offset_slicer.adaptive_clean(raw_offset_wires)
-                    Part.show(Part.Compound(cleaned_wires))
+                    cleaned_wires: list[Part.Wire] = offset_slicer.adaptive_clean(raw_offset_wires, 1)
+                    Part.show(Part.Compound(raw_offset_wires))
 
                     remainder_faces: list[Part.Face] = offset_faces[-1]
                     for inner_face in remainder_faces:
                         zig_zag_slicer: ZigZagFaceSlicer = ZigZagFaceSlicer(
-                            face=inner_face, angle_deg=-45, seam_width=2, continuous=True
+                            face=inner_face, angle_deg=-45, seam_width=1, continuous=True
                         )
                         filling_path: list[Part.Wire] = zig_zag_slicer.slice()
                         Part.show(Part.Compound(filling_path))
