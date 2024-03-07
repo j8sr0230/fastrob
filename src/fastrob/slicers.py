@@ -21,32 +21,14 @@ def layers(solid: Part.Solid, layer_height: float) -> list[Part.Face]:
     return faces
 
 
-def _offset_faces(face: Part.Face, offset: float) -> list[Part.Face]:
-    outer_wire: Part.Wire = cast(Part.Wire, face.OuterWire)
-    outer_face: Part.Face = Part.Face(outer_wire)
-
-    inner_wires: list[Part.Wire] = [inner for inner in face.Wires if not inner.isEqual(outer_wire)]
-    inner_faces: list[Part.Face] = [Part.Face(w) for w in inner_wires]
-    inner_comp: Part.Compound = Part.Compound(inner_faces)
-
-    try:
-        outer_offset: Part.Face = outer_face.makeOffset2D(-offset, 0, False, False, False)
-        inner_offset: Part.Shape = inner_comp.makeOffset2D(-offset, 0, False, False, False)
-        cut: Part.Shape = outer_offset.cut(inner_offset)
-        if cut.isValid():
-            return cut.Faces
-        else:
-            raise ValueError("Offset creation failed.")
-    except (Part.OCCError, App.Base.CADKernelError):  # noqa
-        raise ValueError("Offset creation failed.")
-
-
 def offset_faces(face: Part.Face, offsets: list[float]) -> list[list[Part.Face]]:
     result: list[list[Part.Face]] = []
     for offset in itertools.accumulate(offsets):
-        new_offset_faces: list[Part.Face] = _offset_faces(face, offset)
-        if new_offset_faces:
-            result.append(new_offset_faces)
+        try:
+            result.append(face.makeOffset2D(-offset, 0, False, False, False).Faces)
+        except (Part.OCCError, App.Base.CADKernelError):  # noqa
+            pass
+
     return result
 
 
@@ -58,13 +40,12 @@ def zig_zag_wires(face: Part.Face, angle_deg: float, seam_width: float, connecte
     bb.move(App.Vector(0, 0, BB_OFFSET))
 
     bb_left_bottom: App.Vector = App.Vector(bb.XMin, bb.YMin, bb.ZMin)
-    bb_edge: Part.Edge = Part.Edge(Part.LineSegment(
-        bb_left_bottom,
-        bb_left_bottom + App.Vector(0, bb.YLength, 0)
+    bb_left_edge: Part.Edge = Part.Edge(Part.LineSegment(
+        bb_left_bottom, bb_left_bottom + App.Vector(0, bb.YLength, 0)
     ))
 
-    hatch_count: int = int(round(bb_edge.Length / seam_width, 0))
-    hatch_starts: list[App.Vector] = bb_edge.discretize(Number=hatch_count)
+    hatch_count: int = int(round(bb_left_edge.Length / seam_width, 0))
+    hatch_starts: list[App.Vector] = bb_left_edge.discretize(Number=hatch_count)
     hatch: list[Part.Edge] = [
         Part.Edge(Part.LineSegment(start, start + App.Vector(bb.XLength, 0))) for start in hatch_starts
     ]
@@ -76,6 +57,7 @@ def zig_zag_wires(face: Part.Face, angle_deg: float, seam_width: float, connecte
         hatch_line.common(face).Edges for hatch_line in hatch_compound.Edges if len(hatch_line.common(face).Edges) > 0
     ]
 
+    result: list[Part.Wire] = []
     if len(trimmed_hatch) > 0:
         section_groups: list[list[list[Part.Edge]]] = []
         section_grp: list[list[Part.Edge]] = [trimmed_hatch.pop(0)]
@@ -103,7 +85,6 @@ def zig_zag_wires(face: Part.Face, angle_deg: float, seam_width: float, connecte
                 zipped_sections: list[list[Part.Edge]] = [list(tpl) for tpl in zipped_sections]
                 sorted_section_groups.extend(zipped_sections)
 
-        result: list[Part.Wire] = []
         while sorted_section_groups:
             sorted_section_grp: list[Part.Edge] = sorted_section_groups.pop(0)
 
@@ -134,15 +115,11 @@ def zig_zag_wires(face: Part.Face, angle_deg: float, seam_width: float, connecte
                         ))
                     else:
                         result.append(Part.Wire([edge]))
-        return result
-    else:
-        return []
+    return result
 
 
 def trim_wires(wires: list[Part.Wire], clean_distance: float) -> list[Part.Wire]:
-    combinations: itertools.permutations = itertools.permutations(range(len(wires)), 2)
-    unique_combinations: set = set(map(lambda x: tuple(sorted(x)), list(combinations)))
-    unique_combinations_array: np.ndarray = np.array(list(unique_combinations))
+    unique_combinations_array: np.ndarray = np.array(list(itertools.combinations(range(len(wires)), 2)))
 
     distances: np.ndarray = np.round(
         [wires[item[0]].distToShape(wires[item[1]])[0] for item in unique_combinations_array], 1
@@ -203,7 +180,7 @@ if __name__ == "__main__":
                             is_even: bool = not is_even
 
                             offset_face_list: list[list[Part.Face]] = offset_faces(face=target_face,
-                                                                                   offsets=[2, 2, 2])
+                                                                                   offsets=[2, 2, 1, 1])
                             if len(offset_face_list) > 1:
                                 contour_faces: list[Part.Face] = list(
                                     itertools.chain.from_iterable(offset_face_list[:-1])
@@ -220,7 +197,7 @@ if __name__ == "__main__":
                             filling_wires: list[list[Part.Wire]] = []
                             for target_face in filling_face_list:
                                 filling: list[Part.Wire] = zig_zag_wires(
-                                    face=target_face,  angle_deg=filling_angle_deg, seam_width=2, connected=True
+                                    face=target_face,  angle_deg=filling_angle_deg, seam_width=1, connected=True
                                 )
                                 filling_wires.append(filling)
 
