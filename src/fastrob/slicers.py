@@ -213,50 +213,49 @@ if __name__ == "__main__":
             if hasattr(selection, "Shape"):
                 selection: Part.Feature = cast(Part.Feature, selection)
                 target_solid: Part.Solid = selection.Shape.Solids[0]
-                target_faces: list[Part.Face] = layers(solid=target_solid, layer_height=10)
+                if target_solid is not None:
+                    sliced_wires: list[Part.Wire] = []
 
-                comp: Part.Compound = Part.Compound(target_faces)
-                Part.show(comp)
-                print(target_faces)
+                    target_faces: list[Part.Face] = layers(solid=target_solid, layer_height=2)
 
-            # if hasattr(selection, "Shape"):
-            #     selection: Part.Feature = cast(Part.Feature, selection)
-            #     faces: list[Part.Face] = selection.Shape.Faces
-            #
-            #     if len(faces) > 0:
-            #         target_face: Part.Face = faces[0]
-            #
-            #         offset_face_list: list[list[Part.Face]] = offset_faces(face=target_face, offsets=[2, 2, 1])
-            #         if len(offset_face_list) > 1:
-            #             contour_faces: list[Part.Face] = list(itertools.chain.from_iterable(offset_face_list[:-1]))
-            #         else:
-            #             contour_faces: list[Part.Face] = offset_face_list[0]
-            #
-            #         contour_compound: Part.Compound = Part.Compound(contour_faces)
-            #         contour_wires: list[Part.Wire] = contour_compound.Wires
-            #         # trimmed_contour_wires: list[Part.Wire] = trim_wires(contour_wires, 2)
-            #
-            #         filling_face_list: list[Part.Face] = offset_face_list[-1]
-            #         filling_wires: list[list[Part.Wire]] = []
-            #         for target_face in filling_face_list:
-            #             filling: list[Part.Wire] = zig_zag_wires(
-            #                 face=target_face,  angle_deg=-90, seam_width=1, connected=True
-            #             )
-            #             filling_wires.append(filling)
-            #
-            #         if len(filling_wires) > 1:
-            #             filling_wires: list[Part.Wire] = list(itertools.chain.from_iterable(filling_wires))
-            #         else:
-            #             filling_wires: list[Part.Wire] = filling_wires[0]
-            #
-            #         # trimmed_filling_wires: list[Part.Wire] = trim_wires(filling_wires, 1)
-            #
-            #         Part.show(Part.Compound(contour_wires))
-            #         Part.show(Part.Compound(filling_wires))
-            #         # Part.show(Part.Compound(trimmed_contour_wires))
-            #         # Part.show(Part.Compound(trimmed_filling_wires))
-            #     else:
-            #         print("Selection has no face.")
+                    if len(target_faces) > 0:
+                        is_even: bool = False
+                        while target_faces:
+                            target_face: Part.Face = target_faces.pop(0)
+                            is_even: bool = not is_even
+
+                            offset_face_list: list[list[Part.Face]] = offset_faces(face=target_face, offsets=[2, 1])
+                            if len(offset_face_list) > 1:
+                                contour_faces: list[Part.Face] = list(
+                                    itertools.chain.from_iterable(offset_face_list[:-1])
+                                )
+                            else:
+                                contour_faces: list[Part.Face] = offset_face_list[0]
+
+                            contour_compound: Part.Compound = Part.Compound(contour_faces)
+                            contour_wires: list[Part.Wire] = contour_compound.Wires
+                            # trimmed_contour_wires: list[Part.Wire] = trim_wires(contour_wires, 2)
+
+                            filling_angle_deg: float = -45 if is_even else 45
+                            filling_face_list: list[Part.Face] = offset_face_list[-1]
+                            filling_wires: list[list[Part.Wire]] = []
+                            for target_face in filling_face_list:
+                                filling: list[Part.Wire] = zig_zag_wires(
+                                    face=target_face,  angle_deg=filling_angle_deg, seam_width=2, connected=True
+                                )
+                                filling_wires.append(filling)
+
+                            if len(filling_wires) > 1:
+                                filling_wires: list[Part.Wire] = list(itertools.chain.from_iterable(filling_wires))
+                            else:
+                                filling_wires: list[Part.Wire] = filling_wires[0]
+                            # trimmed_filling_wires: list[Part.Wire] = trim_wires(filling_wires, 1)
+
+                            sliced_wires.extend(contour_wires + filling_wires)
+
+                        Part.show(Part.Compound(sliced_wires))
+                else:
+                    print("Selection has no solid.")
             else:
                 print("Selection has no shape.")
         else:
