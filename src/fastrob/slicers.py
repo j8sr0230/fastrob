@@ -236,7 +236,8 @@ if __name__ == "__main__":
                             contour_wires: list[Part.Wire] = contour_compound.Wires
                             # trimmed_contour_wires: list[Part.Wire] = trim_wires(contour_wires, 2)
 
-                            filling_angle_deg: float = -45 if is_even else 45
+                            filling_angles_deg: np.ndarray = np.array([-45, 45])
+                            filling_angles_deg: np.ndarray = np.tile(filling_angles_deg, 3)
                             filling_face_list: list[Part.Face] = offset_face_list[-1]
                             filling_wires: list[list[Part.Wire]] = []
                             for target_face in filling_face_list:
