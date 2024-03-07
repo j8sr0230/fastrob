@@ -9,16 +9,24 @@ import numpy as np
 BB_OFFSET: int = 5
 
 
-# def layers(solid: Part.Solid, layer_height: float) -> list[list[Part.Face]]:
-#     bb: App.BoundBox = solid.optimalBoundingBox()
-#     bb_left_bottom: App.Vector = App.Vector(bb.XMin, bb.YMin, bb.ZMin)
-#     print(bb_left_bottom, bb.ZLength)
-#
-#     wires: list[Part.Wire] = solid.slice(App.Vector(0, 0, 1), 2)
-#     comp: Part.Compound = Part.Compound(wires)
-#     Part.show(comp)
-#
-#     return [[]]
+def layers(solid: Part.Solid, layer_height: float) -> list[Part.Face]:
+    bb: App.BoundBox = solid.optimalBoundingBox()
+    layer_heights: np.ndarray = np.arange(bb.ZMin, bb.ZMax, layer_height)
+
+    wires: list[list[Part.Wire]] = []
+    for z in layer_heights:
+        wires.append(solid.slice(App.Vector(0, 0, 1), z))
+
+    shapes: list[Part.Shape] = []
+    while wires:
+        wire_set: list[Part.Wire] = wires.pop(0)
+        shapes.append(Part.makeFace(wire_set, "Part::FaceMakerBullseye"))
+
+    faces: list[Part.Face] = []
+    while shapes:
+        faces.extend(shapes.pop(0).Faces)
+
+    return faces
 
 
 def _offset_faces(face: Part.Face, offset: float) -> list[Part.Face]:
@@ -202,49 +210,53 @@ if __name__ == "__main__":
             selection: App.DocumentObject = Gui.Selection.getSelection()[0]
             print("Selected object:", selection.Label)
 
-            # if hasattr(selection, "Shape"):
-            # selection: Part.Feature = cast(Part.Feature, selection)
-            # target_solid: Part.Solid = selection.Shape.Solids[0]
-            # layers(solid=target_solid, layer_height=2)
-
             if hasattr(selection, "Shape"):
                 selection: Part.Feature = cast(Part.Feature, selection)
-                faces: list[Part.Face] = selection.Shape.Faces
+                target_solid: Part.Solid = selection.Shape.Solids[0]
+                target_faces: list[Part.Face] = layers(solid=target_solid, layer_height=10)
 
-                if len(faces) > 0:
-                    target_face: Part.Face = faces[0]
+                comp: Part.Compound = Part.Compound(target_faces)
+                Part.show(comp)
+                print(target_faces)
 
-                    offset_face_list: list[list[Part.Face]] = offset_faces(face=target_face, offsets=[2, 2, 1])
-                    if len(offset_face_list) > 1:
-                        contour_faces: list[Part.Face] = list(itertools.chain.from_iterable(offset_face_list[:-1]))
-                    else:
-                        contour_faces: list[Part.Face] = offset_face_list[0]
-
-                    contour_compound: Part.Compound = Part.Compound(contour_faces)
-                    contour_wires: list[Part.Wire] = contour_compound.Wires
-                    # trimmed_contour_wires: list[Part.Wire] = trim_wires(contour_wires, 2)
-
-                    filling_face_list: list[Part.Face] = offset_face_list[-1]
-                    filling_wires: list[list[Part.Wire]] = []
-                    for target_face in filling_face_list:
-                        filling: list[Part.Wire] = zig_zag_wires(
-                            face=target_face,  angle_deg=-45, seam_width=2, connected=True
-                        )
-                        filling_wires.append(filling)
-
-                    if len(filling_wires) > 1:
-                        filling_wires: list[Part.Wire] = list(itertools.chain.from_iterable(filling_wires))
-                    else:
-                        filling_wires: list[Part.Wire] = filling_wires[0]
-
-                    # trimmed_filling_wires: list[Part.Wire] = trim_wires(filling_wires, 1)
-
-                    Part.show(Part.Compound(contour_wires))
-                    Part.show(Part.Compound(filling_wires))
-                    # Part.show(Part.Compound(trimmed_contour_wires))
-                    # Part.show(Part.Compound(trimmed_filling_wires))
-                else:
-                    print("Selection has no face.")
+            # if hasattr(selection, "Shape"):
+            #     selection: Part.Feature = cast(Part.Feature, selection)
+            #     faces: list[Part.Face] = selection.Shape.Faces
+            #
+            #     if len(faces) > 0:
+            #         target_face: Part.Face = faces[0]
+            #
+            #         offset_face_list: list[list[Part.Face]] = offset_faces(face=target_face, offsets=[2, 2, 1])
+            #         if len(offset_face_list) > 1:
+            #             contour_faces: list[Part.Face] = list(itertools.chain.from_iterable(offset_face_list[:-1]))
+            #         else:
+            #             contour_faces: list[Part.Face] = offset_face_list[0]
+            #
+            #         contour_compound: Part.Compound = Part.Compound(contour_faces)
+            #         contour_wires: list[Part.Wire] = contour_compound.Wires
+            #         # trimmed_contour_wires: list[Part.Wire] = trim_wires(contour_wires, 2)
+            #
+            #         filling_face_list: list[Part.Face] = offset_face_list[-1]
+            #         filling_wires: list[list[Part.Wire]] = []
+            #         for target_face in filling_face_list:
+            #             filling: list[Part.Wire] = zig_zag_wires(
+            #                 face=target_face,  angle_deg=-90, seam_width=1, connected=True
+            #             )
+            #             filling_wires.append(filling)
+            #
+            #         if len(filling_wires) > 1:
+            #             filling_wires: list[Part.Wire] = list(itertools.chain.from_iterable(filling_wires))
+            #         else:
+            #             filling_wires: list[Part.Wire] = filling_wires[0]
+            #
+            #         # trimmed_filling_wires: list[Part.Wire] = trim_wires(filling_wires, 1)
+            #
+            #         Part.show(Part.Compound(contour_wires))
+            #         Part.show(Part.Compound(filling_wires))
+            #         # Part.show(Part.Compound(trimmed_contour_wires))
+            #         # Part.show(Part.Compound(trimmed_filling_wires))
+            #     else:
+            #         print("Selection has no face.")
             else:
                 print("Selection has no shape.")
         else:
