@@ -154,12 +154,6 @@ if __name__ == "__main__":
                     )
                     draw_polygon(planar_offsets[-1])
 
-                    # print(len(horizontal_offsets))
-
-                    # contour_polys: list[list[Polygon]] = offset_polygons(
-                    #     polygons=layers_polys, offsets=(2., 1.,)
-                    # )
-                    #
                     # filling_lines: list[list[LineString]] = []
                     # for contour_poly in contour_polys:
                     #     remainder_poly: Polygon = contour_poly[-1]
@@ -175,8 +169,6 @@ if __name__ == "__main__":
                     #             zig_zag_lines(polygon=remainder_poly, angle_deg=-45, seam_width=2, connected=True)
                     #         )
                     #     filling_lines.append(level_lines)
-                    #
-                    # plot_poly(contour_polys[2], filling_lines[2])
 
                 else:
                     print("No solid selected.")
