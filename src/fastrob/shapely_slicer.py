@@ -1,12 +1,11 @@
-from typing import Any, Union, cast
+from typing import Union, cast
 from math import sqrt
 from itertools import accumulate
 
 import numpy as np
 
-from shapely.geometry import Polygon, MultiPolygon, LineString, MultiLineString
-from shapely.plotting import plot_polygon, plot_line
-from shapely.affinity import rotate
+from shapely.geometry import Polygon, MultiPolygon
+from shapely.plotting import plot_polygon
 import matplotlib.pyplot as plt
 
 import FreeCADGui as Gui
@@ -52,12 +51,12 @@ def cut_planar(solid: Part.Solid, layer_height: float) -> list[MultiPolygon]:
     bb: App.BoundBox = solid.BoundBox
     layer_heights: np.ndarray = np.arange(bb.ZMin + layer_height, bb.ZMax + layer_height, layer_height)
 
-    layers: list[MultiPolygon] = []
+    layer_cross_sections: list[MultiPolygon] = []
     for layer_height in layer_heights:
         cross_section_wires: list[Part.Wire] = solid.slice(App.Vector(0, 0, 1), layer_height)
         cross_section_shapes: Part.Shape = Part.makeFace(cross_section_wires, "Part::FaceMakerBullseye")
 
-        faces: list[Polygon] = []
+        face_cross_sections: list[Polygon] = []
         for cross_section_face in cross_section_shapes.Faces:
             if cross_section_face.isValid() and cross_section_face.Area > 0:
                 exterior_wire: Part.Wire = cast(Part.Wire, cross_section_face.OuterWire)
@@ -69,66 +68,73 @@ def cut_planar(solid: Part.Solid, layer_height: float) -> list[MultiPolygon]:
                 int_points: list[list[tuple]] = [
                     [tuple(v) for v in wire.discretize(Distance=DISCRETIZE_DISTANCE)] for wire in interior_wires
                 ]
-                faces.append(Polygon(shell=ext_points, holes=int_points))
-        layers.append(MultiPolygon(faces))
+                face_cross_sections.append(Polygon(shell=ext_points, holes=int_points))
+        layer_cross_sections.append(MultiPolygon(face_cross_sections))
 
-    return layers
+    return layer_cross_sections
 
 
-def erode_cross_sections(cross_sections: list[MultiPolygon], offsets: tuple[float, ...]) -> list[list[Union[Polygon, MultiPolygon]]]:
-    eroded_sections: list[list[MultiPolygon]] = []
+def offset_planar(cross_sections: list[MultiPolygon], offsets: tuple[float, ...]) -> list[list[MultiPolygon]]:
+    offset_cross_sections: list[list[MultiPolygon]] = []
 
     for cross_section in cross_sections:
-        temp_offsets: list[MultiPolygon] = []
+        layer_offsets: list[MultiPolygon] = []
         for offset in accumulate(offsets):
-            offset_multi_polygon: Union[MultiPolygon, Polygon] = cross_section.buffer(-offset)
-            if not offset_multi_polygon.is_empty:
-                temp_offsets.append(offset_multi_polygon)
+            buffer_polygon: Union[Polygon, MultiPolygon] = cross_section.buffer(-offset)
 
-        eroded_sections.append(temp_offsets)
-    return eroded_sections
+            if not buffer_polygon.is_empty:
+                if type(buffer_polygon) is Polygon:
+                    layer_offsets.append(MultiPolygon([buffer_polygon]))
+                else:
+                    layer_offsets.append(buffer_polygon)
+            else:
+                break
+
+        offset_cross_sections.append(layer_offsets)
+
+    return offset_cross_sections
 
 
-def zig_zag_lines(polygon: Polygon, angle_deg: float, seam_width: float, connected: bool) -> list[LineString]:
-    rotated_poly: Polygon = rotate(polygon, angle=angle_deg, origin="centroid", use_radians=False)
-    min_x, min_y, max_x, max_y = rotated_poly.bounds
-
-    hatch_count: int = int(round((max_y-min_y) / seam_width, 0))
-    hatch_y_pos: np.ndarray = np.linspace(min_y, max_y, hatch_count)
-
-    hatch_y_coords: list[list[tuple[float, float]]] = []
-    for idx, y_pos in enumerate(hatch_y_pos):
-        if idx % 2 == 0:
-            hatch_y_coords.append([(min_x, y_pos), (max_x, y_pos)])
-        else:
-            hatch_y_coords.append([(max_x, y_pos), (min_x, y_pos)])
-    hatch: MultiLineString = rotate(
-        MultiLineString(hatch_y_coords), angle=-angle_deg, origin=polygon.centroid, use_radians=False
-    )
-
-    trimmed_hatch: Any = hatch.intersection(polygon)
-
-    flat_trimmed_hatch: list[LineString] = []
-    if type(trimmed_hatch) is LineString:
-        if trimmed_hatch.length > 0:
-            flat_trimmed_hatch.append(trimmed_hatch)
-    elif hasattr(trimmed_hatch, "geoms"):
-        for item in trimmed_hatch.geoms:
-            if type(item) is LineString and item.length > 0:
-                flat_trimmed_hatch.append(item)
-
-    connectors: list[LineString] = []
-    for idx, hatch_l in enumerate(flat_trimmed_hatch):
-        if idx < len(flat_trimmed_hatch) - 1:
-            next_hatch_line: LineString = flat_trimmed_hatch[idx + 1]
-            print(hatch_l.coords.xy[1], next_hatch_line.coords.xy[0])
-            print()
-            # connector: LineString = LineString(
-            #     [hatch_line.coords.xy[1], next_hatch_line.coords.xy[0]]
-            # )
-            # connectors.append(connector)
-            # flat_trimmed_hatch.append(connector)
-    return flat_trimmed_hatch
+# def zig_zag_lines(polygon: Polygon, angle_deg: float, seam_width: float, connected: bool) -> list[LineString]:
+#     rotated_poly: Polygon = rotate(polygon, angle=angle_deg, origin="centroid", use_radians=False)
+#     min_x, min_y, max_x, max_y = rotated_poly.bounds
+#
+#     hatch_count: int = int(round((max_y-min_y) / seam_width, 0))
+#     hatch_y_pos: np.ndarray = np.linspace(min_y, max_y, hatch_count)
+#
+#     hatch_y_coords: list[list[tuple[float, float]]] = []
+#     for idx, y_pos in enumerate(hatch_y_pos):
+#         if idx % 2 == 0:
+#             hatch_y_coords.append([(min_x, y_pos), (max_x, y_pos)])
+#         else:
+#             hatch_y_coords.append([(max_x, y_pos), (min_x, y_pos)])
+#     hatch: MultiLineString = rotate(
+#         MultiLineString(hatch_y_coords), angle=-angle_deg, origin=polygon.centroid, use_radians=False
+#     )
+#
+#     trimmed_hatch: Any = hatch.intersection(polygon)
+#
+#     flat_trimmed_hatch: list[LineString] = []
+#     if type(trimmed_hatch) is LineString:
+#         if trimmed_hatch.length > 0:
+#             flat_trimmed_hatch.append(trimmed_hatch)
+#     elif hasattr(trimmed_hatch, "geoms"):
+#         for item in trimmed_hatch.geoms:
+#             if type(item) is LineString and item.length > 0:
+#                 flat_trimmed_hatch.append(item)
+#
+#     connectors: list[LineString] = []
+#     for idx, hatch_l in enumerate(flat_trimmed_hatch):
+#         if idx < len(flat_trimmed_hatch) - 1:
+#             next_hatch_line: LineString = flat_trimmed_hatch[idx + 1]
+#             print(hatch_l.coords.xy[1], next_hatch_line.coords.xy[0])
+#             print()
+#             # connector: LineString = LineString(
+#             #     [hatch_line.coords.xy[1], next_hatch_line.coords.xy[0]]
+#             # )
+#             # connectors.append(connector)
+#             # flat_trimmed_hatch.append(connector)
+#     return flat_trimmed_hatch
 
 
 if __name__ == "__main__":
@@ -142,12 +148,13 @@ if __name__ == "__main__":
                 if len(selection.Shape.Solids) > 0:
                     target_solid: Part.Solid = selection.Shape.Solids[0]
 
-                    vertical_slices: list[MultiPolygon] = cut_planar(solid=target_solid, layer_height=2)
-                    horizontal_offsets: list[list[MultiPolygon]] = erode_cross_sections(cross_sections=vertical_slices,
-                                                                                        offsets=(0., 2., 2., 1.))
-                    draw_polygon(horizontal_offsets[-1])
-                    print(horizontal_offsets)
-                    print(len(horizontal_offsets))
+                    planar_cuts: list[MultiPolygon] = cut_planar(solid=target_solid, layer_height=2)
+                    planar_offsets: list[list[MultiPolygon]] = offset_planar(
+                        cross_sections=planar_cuts, offsets=(0., 2., 2., 1.)
+                    )
+                    draw_polygon(planar_offsets[-1])
+
+                    # print(len(horizontal_offsets))
 
                     # contour_polys: list[list[Polygon]] = offset_polygons(
                     #     polygons=layers_polys, offsets=(2., 1.,)
