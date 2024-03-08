@@ -1,11 +1,10 @@
 from typing import cast
 from math import sqrt
-from itertools import accumulate, combinations
+from itertools import accumulate
 
 import numpy as np
 from shapely.geometry import Polygon
 from shapely.plotting import plot_polygon
-from shapely.measurement import distance
 import matplotlib.pyplot as plt
 
 import FreeCADGui as Gui
@@ -26,7 +25,7 @@ GREEN = '#339933'
 RED = '#ff3333'
 BLACK = '#000000'
 
-DISCRETIZE_DISTANCE: float = 5
+DISCRETIZE_DISTANCE: float = 1
 
 
 def plot_poly(polygons: list[Polygon]) -> None:
@@ -86,10 +85,6 @@ def offset_polygons(polygons: list[Polygon], offsets: tuple[float, ...]) -> list
                     single_sided=False
                 ))
 
-            # dist_list: list[float] = [distance(comb[0], comb[1]) for comb in combinations(poly_result, 2)]
-            # print(dist_list)
-            # print()
-
         result.append(poly_result)
     return result
 
@@ -106,12 +101,11 @@ if __name__ == "__main__":
                     target_solid: Part.Solid = selection.Shape.Solids[0]
 
                     layers_polys: list[Polygon] = layer_polygons(solid=target_solid, layer_height=5)
-                    # plot_poly(layers_polys)
 
                     contour_polys: list[list[Polygon]] = offset_polygons(
                         polygons=layers_polys, offsets=(2., 2., 1.)
                     )
-                    plot_poly(contour_polys[0])
+                    plot_poly(contour_polys[1])
 
                 else:
                     print("No solid selected.")
