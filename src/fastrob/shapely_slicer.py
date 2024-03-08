@@ -1,9 +1,11 @@
 from typing import cast
 from math import sqrt
+from itertools import accumulate, combinations
 
 import numpy as np
 from shapely.geometry import Polygon
 from shapely.plotting import plot_polygon
+from shapely.measurement import distance
 import matplotlib.pyplot as plt
 
 import FreeCADGui as Gui
@@ -24,27 +26,32 @@ GREEN = '#339933'
 RED = '#ff3333'
 BLACK = '#000000'
 
-DISCRETIZE_DISTANCE: float = 3
+DISCRETIZE_DISTANCE: float = 5
 
 
-def plot_poly(polygon: Polygon) -> None:
-    poly_z: float = round(polygon.exterior.coords[0][-1], 2)
+def plot_poly(polygons: list[Polygon]) -> None:
     fig: plt.Figure = plt.figure(1, figsize=SIZE, dpi=90)
     ax: plt.Axes = fig.add_subplot(111)
-    ax.set_title("Layer height: " + str(poly_z))
+    ax.set_title("Polygon list")
     ax.set_xlabel("X in mm")
     ax.set_ylabel("Y in mm")
     ax.set_aspect("equal")
 
-    plot_polygon(polygon, ax=ax, add_points=True, color=BLUE)
+    for idx, p in enumerate(polygons):
+        if idx == 0:
+            plot_polygon(p, ax=ax, facecolor=GRAY, edgecolor=BLUE,  alpha=0.5, add_points=False)
+        elif idx == len(polygons) - 1:
+            plot_polygon(p, ax=ax, facecolor=BLUE, edgecolor=BLUE,  alpha=0.5, add_points=False)
+        else:
+            plot_polygon(p, ax=ax, facecolor="#fff", edgecolor=BLUE,  alpha=0.5, add_points=False)
     plt.show()
 
 
-def layers(solid: Part.Solid, layer_height: float) -> list[Polygon]:
+def layer_polygons(solid: Part.Solid, layer_height: float) -> list[Polygon]:
     bb: App.BoundBox = solid.optimalBoundingBox()
     layer_heights: np.ndarray = np.arange(bb.ZMin, bb.ZMax, layer_height)
 
-    polygons: list[Polygon] = []
+    result: list[Polygon] = []
     for layer_height in layer_heights:
         contours: list[Part.Wire] = solid.slice(App.Vector(0, 0, 1), layer_height)
         faces: Part.Shape = Part.makeFace(contours, "Part::FaceMakerBullseye")
@@ -57,9 +64,34 @@ def layers(solid: Part.Solid, layer_height: float) -> list[Polygon]:
             int_points: list[list[tuple]] = [
                 [tuple(v) for v in wire.discretize(Distance=DISCRETIZE_DISTANCE)] for wire in interior
             ]
-            polygons.append(Polygon(shell=ext_points, holes=int_points))
+            result.append(Polygon(shell=ext_points, holes=int_points))
 
-    return polygons
+    return result
+
+
+def offset_polygons(polygons: list[Polygon], offsets: tuple[float, ...]) -> list[list[Polygon]]:
+    result: list[list[Polygon]] = []
+
+    for polygon in polygons:
+        poly_result: list[Polygon] = []
+        for offset in accumulate(offsets):
+            offset_poly: Polygon = polygon.buffer(-offset)
+            if not offset_poly.is_empty:
+                poly_result.append(polygon.buffer(
+                    distance=-offset,
+                    quad_segs=16,
+                    cap_style=1,
+                    join_style=1,
+                    mitre_limit=5.0,
+                    single_sided=False
+                ))
+
+            # dist_list: list[float] = [distance(comb[0], comb[1]) for comb in combinations(poly_result, 2)]
+            # print(dist_list)
+            # print()
+
+        result.append(poly_result)
+    return result
 
 
 if __name__ == "__main__":
@@ -73,8 +105,14 @@ if __name__ == "__main__":
                 if len(selection.Shape.Solids) > 0:
                     target_solid: Part.Solid = selection.Shape.Solids[0]
 
-                    polygon_layers: list[Polygon] = layers(solid=target_solid, layer_height=5)
-                    plot_poly(polygon_layers[5])
+                    layers_polys: list[Polygon] = layer_polygons(solid=target_solid, layer_height=5)
+                    # plot_poly(layers_polys)
+
+                    contour_polys: list[list[Polygon]] = offset_polygons(
+                        polygons=layers_polys, offsets=(2., 2., 1.)
+                    )
+                    plot_poly(contour_polys[0])
+
                 else:
                     print("No solid selected.")
             else:
