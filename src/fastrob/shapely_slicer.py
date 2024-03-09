@@ -47,7 +47,7 @@ def draw_slice(polygons: list[Union[Polygon, MultiPolygon]], lines: list[MultiLi
             plot_polygon(polygon, ax=ax, facecolor="#fff", edgecolor=BLUE, alpha=0.5, add_points=False)
 
     for line in lines:
-        plot_line(line, ax=ax, color=GRAY, alpha=0.5, add_points=False)  # type: ignore
+        plot_line(line, ax=ax, color=GRAY, alpha=0.5, add_points=True)  # type: ignore
 
     plt.show()
 
@@ -114,9 +114,19 @@ def fill_zig_zag(offset_sections: list[list[MultiPolygon]], angle_deg: float, wi
         hatch_count: int = int(round((max_y - min_y) / width, 0))
         hatch_y_pos: np.ndarray = np.linspace(min_y, max_y, hatch_count)
         hatch_y_coords: list[list[tuple[float, float]]] = [
-            [(max_x, y_pos), (min_x, y_pos)] for y_pos in hatch_y_pos
+            [(x, y_pos) for x in np.arange(min_x, max_x, 1)] for y_pos in hatch_y_pos
         ]
-        hatch: MultiLineString = rotate(MultiLineString(hatch_y_coords), -angle_deg, filling_centroid)
+        average_y_items: np.ndarray = ((hatch_y_pos + np.roll(hatch_y_pos, -1))/2.0)
+        small_hatch_y_pos: np.ndarray = np.vstack([hatch_y_pos, average_y_items]).flatten("F")[:-1]
+
+        small_hatch_y_coords: list[list[tuple[float, float]]] = [
+            [(min_x, y_pos), (max_x, y_pos)] for y_pos in small_hatch_y_pos
+        ]
+
+        hatch: MultiLineString = rotate(
+            MultiLineString(hatch_y_coords + small_hatch_y_coords), -angle_deg, filling_centroid
+        )
+        # inner_filling.append(hatch)
 
         trimmed_hatch: Any = hatch.intersection(filling_area)
         if type(trimmed_hatch) is MultiLineString and not trimmed_hatch.is_empty:
