@@ -113,19 +113,13 @@ def fill_zig_zag(offset_sections: list[list[MultiPolygon]], angle_deg: float, wi
             rotated_filling_area: MultiPolygon = rotate(extended_filling_area, angle_deg, filling_centroid)
             min_x, min_y, max_x, max_y = rotated_filling_area.bounds
 
-            print("Height:", max_y - min_y)
-            print("Count:", (max_y - min_y) / width)
-            print("Round:", int(round((max_y - min_y) / width, 0)))
-            print("Step:", (max_y - min_y) / int(round((max_y - min_y) / width, 0)))
-            print("Y", )
-
-            print()
-
-            hatch_count: int = int(round((max_y - min_y) / width, 0)) + 1
-            hatch_y_pos: np.ndarray = np.linspace(min_y, max_y, hatch_count)
-            hatch_y_coords: list[list[tuple[float, float]]] = [
-                [(x, y_pos) for x in np.arange(min_x, max_x, 1)] for y_pos in hatch_y_pos
+            hatch_count: int = int(round((max_y - min_y) / width, 0))
+            hatch_step: float = (max_y - min_y) / hatch_count
+            hatch_y_pos: np.ndarray = np.arange(min_y, max_y + hatch_step, hatch_step)
+            hatch_coords: list[list[tuple[float, float]]] = [
+                [(x, y) for x in np.arange(min_x, max_x, 1)] for y in hatch_y_pos
             ]
+
             # average_y_items: np.ndarray = ((hatch_y_pos + np.roll(hatch_y_pos, -1))/2.0)
             # small_hatch_y_pos: np.ndarray = np.vstack([hatch_y_pos, average_y_items]).flatten("F")[:-1]
             #
@@ -134,7 +128,7 @@ def fill_zig_zag(offset_sections: list[list[MultiPolygon]], angle_deg: float, wi
             # ]
 
             hatch: MultiLineString = rotate(
-                MultiLineString(hatch_y_coords), -angle_deg, filling_centroid
+                MultiLineString(hatch_coords), -angle_deg, filling_centroid
             )
 
             trimmed_hatch: Any = hatch.intersection(filling_sub_area)
@@ -142,8 +136,6 @@ def fill_zig_zag(offset_sections: list[list[MultiPolygon]], angle_deg: float, wi
                 sub_fillings: MultiLineString = sub_fillings.union(trimmed_hatch)
 
         inner_filling.append(sub_fillings)
-        print()
-        print()
         # TODO: Add connectors
 
     return inner_filling
@@ -206,7 +198,7 @@ if __name__ == "__main__":
                         cross_sections=planar_cuts, offsets=(0., 2., 2., 1.)
                     )
                     filling: list[MultiLineString] = fill_zig_zag(
-                        offset_sections=planar_offsets, angle_deg=-0, width=2
+                        offset_sections=planar_offsets, angle_deg=-45, width=2
                     )
                     # print([type(f) for f in filling])
 
