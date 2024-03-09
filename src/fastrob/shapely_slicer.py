@@ -4,7 +4,7 @@ from itertools import accumulate
 
 import numpy as np
 
-from shapely.geometry import Point, MultiLineString, Polygon, MultiPolygon
+from shapely.geometry import Point, LineString, MultiLineString, Polygon, MultiPolygon
 from shapely.affinity import rotate
 from shapely.plotting import plot_line, plot_polygon
 import matplotlib.pyplot as plt
@@ -105,33 +105,45 @@ def fill_zig_zag(offset_sections: list[list[MultiPolygon]], angle_deg: float, wi
 
     for layer_cross_section in offset_sections:
         filling_area: MultiPolygon = layer_cross_section[-1]
-        filling_centroid: Point = filling_area.centroid
 
-        extended_filling_area: MultiPolygon = filling_area.buffer(1)
-        rotated_filling_area: MultiPolygon = rotate(extended_filling_area, angle_deg, filling_centroid)
-        min_x, min_y, max_x, max_y = rotated_filling_area.bounds
+        sub_fillings: MultiLineString = MultiLineString()
+        for filling_sub_area in filling_area.geoms:
+            filling_centroid: Point = filling_sub_area.centroid
+            extended_filling_area: MultiPolygon = filling_sub_area.buffer(1)
+            rotated_filling_area: MultiPolygon = rotate(extended_filling_area, angle_deg, filling_centroid)
+            min_x, min_y, max_x, max_y = rotated_filling_area.bounds
 
-        hatch_count: int = int(round((max_y - min_y) / width, 0))
-        hatch_y_pos: np.ndarray = np.linspace(min_y, max_y, hatch_count)
-        hatch_y_coords: list[list[tuple[float, float]]] = [
-            [(x, y_pos) for x in np.arange(min_x, max_x, 1)] for y_pos in hatch_y_pos
-        ]
-        average_y_items: np.ndarray = ((hatch_y_pos + np.roll(hatch_y_pos, -1))/2.0)
-        small_hatch_y_pos: np.ndarray = np.vstack([hatch_y_pos, average_y_items]).flatten("F")[:-1]
+            print("Height:", max_y - min_y)
+            print("Count:", (max_y - min_y) / width)
+            print("Round:", int(round((max_y - min_y) / width, 0)))
+            print("Step:", (max_y - min_y) / int(round((max_y - min_y) / width, 0)))
+            print("Y", )
 
-        small_hatch_y_coords: list[list[tuple[float, float]]] = [
-            [(min_x, y_pos), (max_x, y_pos)] for y_pos in small_hatch_y_pos
-        ]
+            print()
 
-        hatch: MultiLineString = rotate(
-            MultiLineString(hatch_y_coords + small_hatch_y_coords), -angle_deg, filling_centroid
-        )
-        # inner_filling.append(hatch)
+            hatch_count: int = int(round((max_y - min_y) / width, 0)) + 1
+            hatch_y_pos: np.ndarray = np.linspace(min_y, max_y, hatch_count)
+            hatch_y_coords: list[list[tuple[float, float]]] = [
+                [(x, y_pos) for x in np.arange(min_x, max_x, 1)] for y_pos in hatch_y_pos
+            ]
+            # average_y_items: np.ndarray = ((hatch_y_pos + np.roll(hatch_y_pos, -1))/2.0)
+            # small_hatch_y_pos: np.ndarray = np.vstack([hatch_y_pos, average_y_items]).flatten("F")[:-1]
+            #
+            # small_hatch_y_coords: list[list[tuple[float, float]]] = [
+            #     [(min_x, y_pos), (max_x, y_pos)] for y_pos in small_hatch_y_pos
+            # ]
 
-        trimmed_hatch: Any = hatch.intersection(filling_area)
-        if type(trimmed_hatch) is MultiLineString and not trimmed_hatch.is_empty:
-            inner_filling.append(trimmed_hatch)
+            hatch: MultiLineString = rotate(
+                MultiLineString(hatch_y_coords), -angle_deg, filling_centroid
+            )
 
+            trimmed_hatch: Any = hatch.intersection(filling_sub_area)
+            if type(trimmed_hatch) in (LineString, MultiLineString) and not trimmed_hatch.is_empty:
+                sub_fillings: MultiLineString = sub_fillings.union(trimmed_hatch)
+
+        inner_filling.append(sub_fillings)
+        print()
+        print()
         # TODO: Add connectors
 
     return inner_filling
@@ -194,9 +206,9 @@ if __name__ == "__main__":
                         cross_sections=planar_cuts, offsets=(0., 2., 2., 1.)
                     )
                     filling: list[MultiLineString] = fill_zig_zag(
-                        offset_sections=planar_offsets, angle_deg=-45, width=2
+                        offset_sections=planar_offsets, angle_deg=-0, width=2
                     )
-                    print([type(f) for f in filling])
+                    # print([type(f) for f in filling])
 
                     layer_num: int = -1
                     draw_slice(planar_offsets[layer_num], [filling[layer_num]])
