@@ -4,6 +4,7 @@ from itertools import accumulate
 
 import numpy as np
 
+from shapely import segmentize
 from shapely.geometry import Point, LineString, MultiLineString, Polygon, MultiPolygon
 from shapely.affinity import rotate
 from shapely.plotting import plot_line, plot_polygon
@@ -116,9 +117,7 @@ def fill_zig_zag(offset_sections: list[list[MultiPolygon]], angle_deg: float, wi
             hatch_count: int = int(round((max_y - min_y) / width, 0))
             hatch_step: float = (max_y - min_y) / hatch_count
             hatch_y_pos: np.ndarray = np.arange(min_y, max_y + hatch_step, hatch_step)
-            hatch_coords: list[list[tuple[float, float]]] = [
-                [(x, y) for x in np.arange(min_x, max_x, 1)] for y in hatch_y_pos
-            ]
+            hatch_coords: list[list[tuple[float, float]]] = [[(min_x, y), (max_x, y)] for y in hatch_y_pos]
 
             # average_y_items: np.ndarray = ((hatch_y_pos + np.roll(hatch_y_pos, -1))/2.0)
             # small_hatch_y_pos: np.ndarray = np.vstack([hatch_y_pos, average_y_items]).flatten("F")[:-1]
@@ -133,6 +132,7 @@ def fill_zig_zag(offset_sections: list[list[MultiPolygon]], angle_deg: float, wi
 
             trimmed_hatch: Any = hatch.intersection(filling_sub_area)
             if type(trimmed_hatch) in (LineString, MultiLineString) and not trimmed_hatch.is_empty:
+                trimmed_hatch: Union[LineString, MultiLineString] = segmentize(trimmed_hatch, 2)
                 sub_fillings: MultiLineString = sub_fillings.union(trimmed_hatch)
 
         inner_filling.append(sub_fillings)
