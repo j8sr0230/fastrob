@@ -3,12 +3,12 @@ from math import sqrt
 from itertools import accumulate
 
 import numpy as np
-
 from shapely import segmentize
 from shapely.geometry import Point, LineString, MultiLineString, Polygon, MultiPolygon
 from shapely.affinity import rotate
 from shapely.plotting import plot_line, plot_polygon
 import matplotlib.pyplot as plt
+import networkx as nx
 
 import FreeCADGui as Gui
 import FreeCAD as App
@@ -199,6 +199,14 @@ if __name__ == "__main__":
 
                     layer_num: int = -1
                     draw_slice(planar_offsets[layer_num], [filling[layer_num]])
+                    coords: Any = [geo.coords.xy for geo in filling[layer_num].geoms]
+                    print(coords[0][0])
+
+                    # G: nx.Graph = nx.Graph()
+                    # G.add_nodes_from(point_attribute_list)
+                    # G.add_edges_from(nx.geometric_edges(G, radius=2.7))
+                    # nx.draw(G, pos=nx.get_node_attributes(G, "pos"), node_size=10, with_labels=False)
+                    # plt.show()
 
                     # filling_lines: list[list[LineString]] = []
                     # for contour_poly in contour_polys:
