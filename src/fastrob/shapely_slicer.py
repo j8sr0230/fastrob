@@ -1,11 +1,12 @@
-from typing import Union, cast
+from typing import Any, Union, cast
 from math import sqrt
 from itertools import accumulate
 
 import numpy as np
 
-from shapely.geometry import Polygon, MultiPolygon
-from shapely.plotting import plot_polygon
+from shapely.geometry import Point, MultiLineString, Polygon, MultiPolygon
+from shapely.affinity import rotate
+from shapely.plotting import plot_line, plot_polygon
 import matplotlib.pyplot as plt
 
 import FreeCADGui as Gui
@@ -29,10 +30,10 @@ BLACK = '#000000'
 DISCRETIZE_DISTANCE: float = 2
 
 
-def draw_polygon(polygons: list[Union[Polygon, MultiPolygon]]) -> None:
+def draw_slice(polygons: list[Union[Polygon, MultiPolygon]], lines: list[MultiLineString]) -> None:
     fig: plt.Figure = plt.figure(1, figsize=SIZE, dpi=90)
     ax: plt.Axes = fig.add_subplot(111)
-    ax.set_title("Multipolygon")
+    ax.set_title("Slice Viewer")
     ax.set_xlabel("X in mm")
     ax.set_ylabel("Y in mm")
     ax.set_aspect("equal")
@@ -44,6 +45,10 @@ def draw_polygon(polygons: list[Union[Polygon, MultiPolygon]]) -> None:
             plot_polygon(polygon, ax=ax, facecolor=BLUE, edgecolor=BLUE, alpha=0.5, add_points=False)
         else:
             plot_polygon(polygon, ax=ax, facecolor="#fff", edgecolor=BLUE, alpha=0.5, add_points=False)
+
+    for line in lines:
+        plot_line(line, ax=ax, color=GRAY, alpha=0.5, add_points=False)  # type: ignore
+
     plt.show()
 
 
@@ -94,6 +99,32 @@ def offset_planar(cross_sections: list[MultiPolygon], offsets: tuple[float, ...]
 
     return offset_cross_sections
 
+
+def fill_zig_zag(offset_sections: list[list[MultiPolygon]], angle_deg: float, width: float) -> list[MultiLineString]:
+    inner_filling: list[MultiLineString] = []
+
+    for layer_cross_section in offset_sections:
+        filling_area: MultiPolygon = layer_cross_section[-1]
+        filling_centroid: Point = filling_area.centroid
+
+        extended_filling_area: MultiPolygon = filling_area.buffer(1)
+        rotated_filling_area: MultiPolygon = rotate(extended_filling_area, angle_deg, filling_centroid)
+        min_x, min_y, max_x, max_y = rotated_filling_area.bounds
+
+        hatch_count: int = int(round((max_y - min_y) / width, 0))
+        hatch_y_pos: np.ndarray = np.linspace(min_y, max_y, hatch_count)
+        hatch_y_coords: list[list[tuple[float, float]]] = [
+            [(max_x, y_pos), (min_x, y_pos)] for y_pos in hatch_y_pos
+        ]
+        hatch: MultiLineString = rotate(MultiLineString(hatch_y_coords), -angle_deg, filling_centroid)
+
+        trimmed_hatch: Any = hatch.intersection(filling_area)
+        if type(trimmed_hatch) is MultiLineString and not trimmed_hatch.is_empty:
+            inner_filling.append(trimmed_hatch)
+
+        # TODO: Add connectors
+
+    return inner_filling
 
 # def zig_zag_lines(polygon: Polygon, angle_deg: float, seam_width: float, connected: bool) -> list[LineString]:
 #     rotated_poly: Polygon = rotate(polygon, angle=angle_deg, origin="centroid", use_radians=False)
@@ -148,11 +179,17 @@ if __name__ == "__main__":
                 if len(selection.Shape.Solids) > 0:
                     target_solid: Part.Solid = selection.Shape.Solids[0]
 
-                    planar_cuts: list[MultiPolygon] = cut_planar(solid=target_solid, layer_height=2)
+                    planar_cuts: list[MultiPolygon] = cut_planar(solid=target_solid, layer_height=5)
                     planar_offsets: list[list[MultiPolygon]] = offset_planar(
                         cross_sections=planar_cuts, offsets=(0., 2., 2., 1.)
                     )
-                    draw_polygon(planar_offsets[-1])
+                    filling: list[MultiLineString] = fill_zig_zag(
+                        offset_sections=planar_offsets, angle_deg=-45, width=2
+                    )
+                    print([type(f) for f in filling])
+
+                    layer_num: int = -1
+                    draw_slice(planar_offsets[layer_num], [filling[layer_num]])
 
                     # filling_lines: list[list[LineString]] = []
                     # for contour_poly in contour_polys:
