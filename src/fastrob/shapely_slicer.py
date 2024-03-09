@@ -114,29 +114,24 @@ def fill_zig_zag(offset_sections: list[list[MultiPolygon]], angle_deg: float, wi
             rotated_filling_area: MultiPolygon = rotate(extended_filling_area, angle_deg, filling_centroid)
             min_x, min_y, max_x, max_y = rotated_filling_area.bounds
 
-            hatch_count: int = int(round((max_y - min_y) / width, 0))
-            hatch_step: float = (max_y - min_y) / hatch_count
-            hatch_y_pos: np.ndarray = np.arange(min_y, max_y + hatch_step, hatch_step)
-            hatch_coords: list[list[tuple[float, float]]] = [[(min_x, y), (max_x, y)] for y in hatch_y_pos]
+            major_hatch_count: int = int(round((max_y - min_y) / width, 0))
+            major_hatch_step: float = (max_y - min_y) / major_hatch_count
+            major_hatch_y_pos: np.ndarray = np.arange(min_y, max_y + major_hatch_step, major_hatch_step)
+            major_hatch_coords: list[list[tuple[float, float]]] = [[(min_x, y), (max_x, y)] for y in major_hatch_y_pos]
+            major_hatch: MultiLineString = rotate(MultiLineString(major_hatch_coords), -angle_deg, filling_centroid)
+            major_trimmed_hatch: Any = major_hatch.intersection(filling_sub_area)
+            if type(major_trimmed_hatch) in (LineString, MultiLineString) and not major_trimmed_hatch.is_empty:
+                major_trimmed_hatch: Union[LineString, MultiLineString] = segmentize(major_trimmed_hatch, 2)
+                sub_fillings: MultiLineString = sub_fillings.union(major_trimmed_hatch)
 
-            # average_y_items: np.ndarray = ((hatch_y_pos + np.roll(hatch_y_pos, -1))/2.0)
-            # small_hatch_y_pos: np.ndarray = np.vstack([hatch_y_pos, average_y_items]).flatten("F")[:-1]
-            #
-            # small_hatch_y_coords: list[list[tuple[float, float]]] = [
-            #     [(min_x, y_pos), (max_x, y_pos)] for y_pos in small_hatch_y_pos
-            # ]
-
-            hatch: MultiLineString = rotate(
-                MultiLineString(hatch_coords), -angle_deg, filling_centroid
-            )
-
-            trimmed_hatch: Any = hatch.intersection(filling_sub_area)
-            if type(trimmed_hatch) in (LineString, MultiLineString) and not trimmed_hatch.is_empty:
-                trimmed_hatch: Union[LineString, MultiLineString] = segmentize(trimmed_hatch, 2)
-                sub_fillings: MultiLineString = sub_fillings.union(trimmed_hatch)
+            minor_hatch_y_pos: np.ndarray = ((major_hatch_y_pos + np.roll(major_hatch_y_pos, -1))/2.0)
+            minor_hatch_coords: list[list[tuple[float, float]]] = [[(min_x, y), (max_x, y)] for y in minor_hatch_y_pos]
+            minor_hatch: MultiLineString = rotate(MultiLineString(minor_hatch_coords), -angle_deg, filling_centroid)
+            minor_trimmed_hatch: Any = minor_hatch.intersection(filling_sub_area)
+            if type(minor_trimmed_hatch) in (LineString, MultiLineString) and not minor_trimmed_hatch.is_empty:
+                sub_fillings: MultiLineString = sub_fillings.union(minor_trimmed_hatch)
 
         inner_filling.append(sub_fillings)
-        # TODO: Add connectors
 
     return inner_filling
 
