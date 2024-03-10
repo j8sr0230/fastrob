@@ -123,7 +123,8 @@ def fill_zig_zag(sections: list[list[MultiPolygon]], angle_deg: float, width: fl
             y_pos: np.ndarray = np.arange(min_y, max_y + major_step, major_step / minor_count)
             print("y_pos", y_pos)
             print("Y%", y_pos % major_step)
-            print("Y - %", np.round((y_pos - y_pos[0]) % major_step), 1)
+            print("Y% off", (y_pos - y_pos[0]))
+            print("Y - %", (y_pos - y_pos[0] % major_step))
             print()
 
             major_coors: list[list[tuple[float, float]]] = []
