@@ -109,42 +109,51 @@ def fill_zig_zag(sections: list[list[MultiPolygon]], angle_deg: float, width: fl
         temp_result: MultiLineString = MultiLineString()
         for filling_sub_area in filling_area.geoms:
             filling_centroid: Point = filling_sub_area.centroid
-            extended_filling_area: MultiPolygon = filling_sub_area.buffer(2)
-            rotated_filling_area: MultiPolygon = rotate(extended_filling_area, angle_deg, filling_centroid)
+            rotated_filling_area: MultiPolygon = rotate(filling_sub_area, angle_deg, filling_centroid)
             min_x, min_y, max_x, max_y = rotated_filling_area.bounds
 
-            major_count: int = int(round((max_y - min_y) / width, 0))
-            major_step: float = round((max_y - min_y) / major_count, 2)
-            minor_count: int = 2
+            fill_height: float = max_y - min_y
+            major_count: int = int(np.round(fill_height / width, 0))
+            # major_step_height: float = fill_height / major_count
+            calculated_height: float = width * major_count
+            fill_y_offset: float = (fill_height - calculated_height) / 2
+            fill_y_start: float = min_y + width/2 + fill_y_offset
+            minor_count: int = 1
 
-            y_pos: np.ndarray = np.arange(min_y, max_y + major_step, major_step / minor_count)
+            major_coords: list[list[tuple[float, float]]] = []
+            minor_coords: list[list[tuple[float, float]]] = []
+            # if fill_height > width:
+            y_pos: np.ndarray = np.arange(
+                start=fill_y_start,
+                stop=max_y,
+                step=width / minor_count
+            )
 
-            major_coors: list[list[tuple[float, float]]] = []
-            minor_coors: list[list[tuple[float, float]]] = []
+            hatch_count: int = 0
             for y in y_pos:
-                if round((y - y_pos[0]) % major_step, 2) % major_step == 0:
-                    major_coors.append([(min_x, y), (max_x, y)])
+                if hatch_count % (minor_count + 1) == 0:
+                    major_coords.append([(min_x, y), (max_x, y)])
                 else:
-                    minor_coors.append([(min_x, y), (max_x, y)])
+                    minor_coords.append([(min_x, y), (max_x, y)])
+                hatch_count += 1
 
-            major_hatch: MultiLineString = rotate(MultiLineString(major_coors), -angle_deg, filling_centroid)
+            # else:
+            #     major_coords: list[list[tuple[float, float]]] = [
+            #         [(min_x, fill_y_start + (fill_height / 2)), (max_x, fill_y_start + (fill_height / 2))]
+            #     ]
+
+            major_hatch: MultiLineString = rotate(MultiLineString(major_coords), -angle_deg, filling_centroid)
             major_trimmed_hatch: Any = major_hatch.intersection(filling_sub_area)
             if type(major_trimmed_hatch) in (LineString, MultiLineString) and not major_trimmed_hatch.is_empty:
-                print("Major")
                 major_trimmed_hatch: Union[LineString, MultiLineString] = segmentize(major_trimmed_hatch, 1)
                 temp_result: MultiLineString = temp_result.union(major_trimmed_hatch)
-                print(type(major_trimmed_hatch))
 
-            minor_hatch: MultiLineString = rotate(MultiLineString(minor_coors), -angle_deg, filling_centroid)
+            minor_hatch: MultiLineString = rotate(MultiLineString(minor_coords), -angle_deg, filling_centroid)
             minor_trimmed_hatch: Any = minor_hatch.intersection(filling_sub_area)
             if type(minor_trimmed_hatch) in (LineString, MultiLineString) and not minor_trimmed_hatch.is_empty:
-                print("minor")
                 temp_result: MultiLineString = temp_result.union(minor_trimmed_hatch)
-                print(type(minor_trimmed_hatch))
 
         result.append(temp_result)
-        print()
-        print()
 
     return result
 
@@ -210,7 +219,7 @@ if __name__ == "__main__":
                     )
                     # print([type(f) for f in filling])
 
-                    layer_num: int = -1
+                    layer_num: int = -2
                     draw_slice(planar_offsets[layer_num], [filling[layer_num]])
                     coords: Any = [geo.coords.xy for geo in filling[layer_num].geoms]
 
@@ -219,7 +228,6 @@ if __name__ == "__main__":
                     # G.add_edges_from(nx.geometric_edges(G, radius=2.7))
                     # nx.draw(G, pos=nx.get_node_attributes(G, "pos"), node_size=10, with_labels=False)
                     # plt.show()
-
 
                 else:
                     print("No solid selected.")
