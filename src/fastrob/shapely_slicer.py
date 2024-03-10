@@ -53,40 +53,40 @@ def draw_slice(polygons: list[Union[Polygon, MultiPolygon]], lines: list[MultiLi
     plt.show()
 
 
-def cut_planar(solid: Part.Solid, layer_height: float) -> list[MultiPolygon]:
+def slice_solid(solid: Part.Solid, layer_height: float) -> list[MultiPolygon]:
     bb: App.BoundBox = solid.BoundBox
     layer_heights: np.ndarray = np.arange(bb.ZMin + layer_height, bb.ZMax + layer_height, layer_height)
 
-    layer_cross_sections: list[MultiPolygon] = []
+    result: list[MultiPolygon] = []
     for layer_height in layer_heights:
-        cross_section_wires: list[Part.Wire] = solid.slice(App.Vector(0, 0, 1), layer_height)
-        cross_section_shapes: Part.Shape = Part.makeFace(cross_section_wires, "Part::FaceMakerBullseye")
+        section_wires: list[Part.Wire] = solid.slice(App.Vector(0, 0, 1), layer_height)
+        section_shapes: Part.Shape = Part.makeFace(section_wires, "Part::FaceMakerBullseye")
 
-        face_cross_sections: list[Polygon] = []
-        for cross_section_face in cross_section_shapes.Faces:
-            if cross_section_face.isValid() and cross_section_face.Area > 0:
-                exterior_wire: Part.Wire = cast(Part.Wire, cross_section_face.OuterWire)
+        section_faces: list[Polygon] = []
+        for section_face in section_shapes.Faces:
+            if section_face.isValid() and section_face.Area > 0:
+                exterior_wire: Part.Wire = cast(Part.Wire, section_face.OuterWire)
                 interior_wires: list[Part.Wire] = [
-                    wire for wire in cross_section_face.Wires if not wire.isEqual(exterior_wire)
+                    wire for wire in section_face.Wires if not wire.isEqual(exterior_wire)
                 ]
 
                 ext_points: list[tuple] = [tuple(v) for v in exterior_wire.discretize(Distance=DISCRETIZE_DISTANCE)]
                 int_points: list[list[tuple]] = [
                     [tuple(v) for v in wire.discretize(Distance=DISCRETIZE_DISTANCE)] for wire in interior_wires
                 ]
-                face_cross_sections.append(Polygon(shell=ext_points, holes=int_points))
-        layer_cross_sections.append(MultiPolygon(face_cross_sections))
+                section_faces.append(Polygon(shell=ext_points, holes=int_points))
+        result.append(MultiPolygon(section_faces))
 
-    return layer_cross_sections
+    return result
 
 
-def offset_planar(cross_sections: list[MultiPolygon], offsets: tuple[float, ...]) -> list[list[MultiPolygon]]:
-    offset_cross_sections: list[list[MultiPolygon]] = []
+def offset_sections(sections: list[MultiPolygon], offsets: tuple[float, ...]) -> list[list[MultiPolygon]]:
+    result: list[list[MultiPolygon]] = []
 
-    for cross_section in cross_sections:
+    for section in sections:
         layer_offsets: list[MultiPolygon] = []
         for offset in accumulate(offsets):
-            buffer_polygon: Union[Polygon, MultiPolygon] = cross_section.buffer(-offset)
+            buffer_polygon: Union[Polygon, MultiPolygon] = section.buffer(-offset)
 
             if not buffer_polygon.is_empty:
                 if type(buffer_polygon) is Polygon:
@@ -96,44 +96,58 @@ def offset_planar(cross_sections: list[MultiPolygon], offsets: tuple[float, ...]
             else:
                 break
 
-        offset_cross_sections.append(layer_offsets)
+        result.append(layer_offsets)
+    return result
 
-    return offset_cross_sections
 
+def fill_zig_zag(sections: list[list[MultiPolygon]], angle_deg: float, width: float) -> list[MultiLineString]:
+    result: list[MultiLineString] = []
 
-def fill_zig_zag(offset_sections: list[list[MultiPolygon]], angle_deg: float, width: float) -> list[MultiLineString]:
-    inner_filling: list[MultiLineString] = []
+    for layer_section in sections:
+        filling_area: MultiPolygon = layer_section[-1]
 
-    for layer_cross_section in offset_sections:
-        filling_area: MultiPolygon = layer_cross_section[-1]
-
-        sub_fillings: MultiLineString = MultiLineString()
+        temp_result: MultiLineString = MultiLineString()
         for filling_sub_area in filling_area.geoms:
             filling_centroid: Point = filling_sub_area.centroid
             extended_filling_area: MultiPolygon = filling_sub_area.buffer(1)
             rotated_filling_area: MultiPolygon = rotate(extended_filling_area, angle_deg, filling_centroid)
             min_x, min_y, max_x, max_y = rotated_filling_area.bounds
 
-            major_hatch_count: int = int(round((max_y - min_y) / width, 0))
-            major_hatch_step: float = (max_y - min_y) / major_hatch_count
-            major_hatch_y_pos: np.ndarray = np.arange(min_y, max_y + major_hatch_step, major_hatch_step)
-            major_hatch_coords: list[list[tuple[float, float]]] = [[(min_x, y), (max_x, y)] for y in major_hatch_y_pos]
-            major_hatch: MultiLineString = rotate(MultiLineString(major_hatch_coords), -angle_deg, filling_centroid)
+            major_count: int = int(round((max_y - min_y) / width, 0))
+            major_step: float = (max_y - min_y) / major_count
+            minor_count: int = 5
+            print("Major Step", major_step)
+            print("Minor Step", major_step / minor_count)
+
+
+            y_pos: np.ndarray = np.arange(min_y, max_y + major_step, major_step / minor_count)
+            print("y_pos", y_pos)
+            print("Y%", y_pos % major_step)
+            print("Y - %", np.round((y_pos - y_pos[0]) % major_step), 1)
+            print()
+
+            major_coors: list[list[tuple[float, float]]] = []
+            minor_coors: list[list[tuple[float, float]]] = []
+            for y in y_pos:
+                if round(y % major_step, 0) == 0:
+                    major_coors.append([(min_x, y), (max_x, y)])
+                else:
+                    minor_coors.append([(min_x, y), (max_x, y)])
+
+            major_hatch: MultiLineString = rotate(MultiLineString(major_coors), -angle_deg, filling_centroid)
             major_trimmed_hatch: Any = major_hatch.intersection(filling_sub_area)
             if type(major_trimmed_hatch) in (LineString, MultiLineString) and not major_trimmed_hatch.is_empty:
                 major_trimmed_hatch: Union[LineString, MultiLineString] = segmentize(major_trimmed_hatch, 2)
-                sub_fillings: MultiLineString = sub_fillings.union(major_trimmed_hatch)
+                temp_result: MultiLineString = temp_result.union(major_trimmed_hatch)
 
-            minor_hatch_y_pos: np.ndarray = ((major_hatch_y_pos + np.roll(major_hatch_y_pos, -1))/2.0)
-            minor_hatch_coords: list[list[tuple[float, float]]] = [[(min_x, y), (max_x, y)] for y in minor_hatch_y_pos]
-            minor_hatch: MultiLineString = rotate(MultiLineString(minor_hatch_coords), -angle_deg, filling_centroid)
+            minor_hatch: MultiLineString = rotate(MultiLineString(minor_coors), -angle_deg, filling_centroid)
             minor_trimmed_hatch: Any = minor_hatch.intersection(filling_sub_area)
             if type(minor_trimmed_hatch) in (LineString, MultiLineString) and not minor_trimmed_hatch.is_empty:
-                sub_fillings: MultiLineString = sub_fillings.union(minor_trimmed_hatch)
+                temp_result: MultiLineString = temp_result.union(minor_trimmed_hatch)
+        print()
+        result.append(temp_result)
 
-        inner_filling.append(sub_fillings)
-
-    return inner_filling
+    return result
 
 # def zig_zag_lines(polygon: Polygon, angle_deg: float, seam_width: float, connected: bool) -> list[LineString]:
 #     rotated_poly: Polygon = rotate(polygon, angle=angle_deg, origin="centroid", use_radians=False)
@@ -188,12 +202,12 @@ if __name__ == "__main__":
                 if len(selection.Shape.Solids) > 0:
                     target_solid: Part.Solid = selection.Shape.Solids[0]
 
-                    planar_cuts: list[MultiPolygon] = cut_planar(solid=target_solid, layer_height=5)
-                    planar_offsets: list[list[MultiPolygon]] = offset_planar(
-                        cross_sections=planar_cuts, offsets=(0., 2., 2., 1.)
+                    planar_cuts: list[MultiPolygon] = slice_solid(solid=target_solid, layer_height=5)
+                    planar_offsets: list[list[MultiPolygon]] = offset_sections(
+                        sections=planar_cuts, offsets=(0., 2., 2., 1.)
                     )
                     filling: list[MultiLineString] = fill_zig_zag(
-                        offset_sections=planar_offsets, angle_deg=-45, width=2
+                        sections=planar_offsets, angle_deg=0, width=2
                     )
                     # print([type(f) for f in filling])
 
