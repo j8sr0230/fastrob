@@ -8,7 +8,7 @@ from shapely.geometry import Point, LineString, MultiLineString, Polygon, MultiP
 from shapely.affinity import rotate
 from shapely.plotting import plot_line, plot_polygon
 import matplotlib.pyplot as plt
-import networkx as nx
+# import networkx as nx
 
 import FreeCADGui as Gui
 import FreeCAD as App
@@ -109,28 +109,20 @@ def fill_zig_zag(sections: list[list[MultiPolygon]], angle_deg: float, width: fl
         temp_result: MultiLineString = MultiLineString()
         for filling_sub_area in filling_area.geoms:
             filling_centroid: Point = filling_sub_area.centroid
-            extended_filling_area: MultiPolygon = filling_sub_area.buffer(1)
+            extended_filling_area: MultiPolygon = filling_sub_area.buffer(2)
             rotated_filling_area: MultiPolygon = rotate(extended_filling_area, angle_deg, filling_centroid)
             min_x, min_y, max_x, max_y = rotated_filling_area.bounds
 
             major_count: int = int(round((max_y - min_y) / width, 0))
-            major_step: float = (max_y - min_y) / major_count
-            minor_count: int = 5
-            print("Major Step", major_step)
-            print("Minor Step", major_step / minor_count)
-
+            major_step: float = round((max_y - min_y) / major_count, 2)
+            minor_count: int = 2
 
             y_pos: np.ndarray = np.arange(min_y, max_y + major_step, major_step / minor_count)
-            print("y_pos", y_pos)
-            print("Y%", y_pos % major_step)
-            print("Y% off", (y_pos - y_pos[0]))
-            print("Y - %", (y_pos - y_pos[0] % major_step))
-            print()
 
             major_coors: list[list[tuple[float, float]]] = []
             minor_coors: list[list[tuple[float, float]]] = []
             for y in y_pos:
-                if round(y % major_step, 0) == 0:
+                if round((y - y_pos[0]) % major_step, 2) % major_step == 0:
                     major_coors.append([(min_x, y), (max_x, y)])
                 else:
                     minor_coors.append([(min_x, y), (max_x, y)])
@@ -138,15 +130,21 @@ def fill_zig_zag(sections: list[list[MultiPolygon]], angle_deg: float, width: fl
             major_hatch: MultiLineString = rotate(MultiLineString(major_coors), -angle_deg, filling_centroid)
             major_trimmed_hatch: Any = major_hatch.intersection(filling_sub_area)
             if type(major_trimmed_hatch) in (LineString, MultiLineString) and not major_trimmed_hatch.is_empty:
-                major_trimmed_hatch: Union[LineString, MultiLineString] = segmentize(major_trimmed_hatch, 2)
+                print("Major")
+                major_trimmed_hatch: Union[LineString, MultiLineString] = segmentize(major_trimmed_hatch, 1)
                 temp_result: MultiLineString = temp_result.union(major_trimmed_hatch)
+                print(type(major_trimmed_hatch))
 
             minor_hatch: MultiLineString = rotate(MultiLineString(minor_coors), -angle_deg, filling_centroid)
             minor_trimmed_hatch: Any = minor_hatch.intersection(filling_sub_area)
             if type(minor_trimmed_hatch) in (LineString, MultiLineString) and not minor_trimmed_hatch.is_empty:
+                print("minor")
                 temp_result: MultiLineString = temp_result.union(minor_trimmed_hatch)
-        print()
+                print(type(minor_trimmed_hatch))
+
         result.append(temp_result)
+        print()
+        print()
 
     return result
 
@@ -208,14 +206,13 @@ if __name__ == "__main__":
                         sections=planar_cuts, offsets=(0., 2., 2., 1.)
                     )
                     filling: list[MultiLineString] = fill_zig_zag(
-                        sections=planar_offsets, angle_deg=0, width=2
+                        sections=planar_offsets, angle_deg=-0, width=2
                     )
                     # print([type(f) for f in filling])
 
                     layer_num: int = -1
                     draw_slice(planar_offsets[layer_num], [filling[layer_num]])
                     coords: Any = [geo.coords.xy for geo in filling[layer_num].geoms]
-                    print(coords[0][0])
 
                     # G: nx.Graph = nx.Graph()
                     # G.add_nodes_from(point_attribute_list)
@@ -223,21 +220,6 @@ if __name__ == "__main__":
                     # nx.draw(G, pos=nx.get_node_attributes(G, "pos"), node_size=10, with_labels=False)
                     # plt.show()
 
-                    # filling_lines: list[list[LineString]] = []
-                    # for contour_poly in contour_polys:
-                    #     remainder_poly: Polygon = contour_poly[-1]
-                    #
-                    #     level_lines: list[LineString] = []
-                    #     if type(remainder_poly) is MultiPolygon:
-                    #         for poly in cast(MultiPolygon, remainder_poly).geoms:
-                    #             level_lines.extend(
-                    #                 zig_zag_lines(polygon=poly, angle_deg=-45, seam_width=2, connected=True)
-                    #             )
-                    #     else:
-                    #         level_lines.extend(
-                    #             zig_zag_lines(polygon=remainder_poly, angle_deg=-45, seam_width=2, connected=True)
-                    #         )
-                    #     filling_lines.append(level_lines)
 
                 else:
                     print("No solid selected.")
