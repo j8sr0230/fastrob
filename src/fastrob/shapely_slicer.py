@@ -8,7 +8,7 @@ from shapely.geometry import Point, LineString, MultiLineString, Polygon, MultiP
 from shapely.affinity import rotate
 from shapely.plotting import plot_line, plot_polygon
 import matplotlib.pyplot as plt
-# import networkx as nx
+import networkx as nx
 
 import FreeCADGui as Gui
 import FreeCAD as App
@@ -177,14 +177,26 @@ if __name__ == "__main__":
                     )
 
                     layer_num: int = -1
-                    draw_slice(planar_offsets[layer_num], [filling[layer_num]])
-                    coords: Any = [geo.coords.xy for geo in filling[layer_num].geoms]
+                    # draw_slice(planar_offsets[layer_num], [filling[layer_num]])
 
-                    # G: nx.Graph = nx.Graph()
-                    # G.add_nodes_from(point_attribute_list)
+                    lines: list[list[tuple[Any]]] = [
+                        list(zip(*geo.coords.xy)) for geo in filling[layer_num].geoms
+                    ]
+
+                    points: list[np.ndarray] = []
+                    for line in lines:
+                        for point in line:
+                            points.append(np.array(point))
+
+                    point_attributes: list[tuple[int, dict[str, np.ndarray]]] = [
+                        (idx, {"pos": pos}) for idx, pos in enumerate(points)
+                    ]
+
+                    G: nx.Graph = nx.Graph()
+                    G.add_nodes_from(point_attributes)
                     # G.add_edges_from(nx.geometric_edges(G, radius=2.7))
-                    # nx.draw(G, pos=nx.get_node_attributes(G, "pos"), node_size=10, with_labels=False)
-                    # plt.show()
+                    nx.draw(G, pos=nx.get_node_attributes(G, "pos"), node_size=10, with_labels=False)
+                    plt.show()
 
                 else:
                     print("No solid selected.")
