@@ -1,4 +1,4 @@
-from typing import Any, Union, cast
+from typing import Any, Union, Callable, cast
 from math import sqrt
 from itertools import accumulate
 
@@ -173,30 +173,50 @@ if __name__ == "__main__":
                         sections=planar_cuts, offsets=(0., 2., 1.)
                     )
                     filling: list[MultiLineString] = fill_zig_zag(
-                        sections=planar_offsets, angle_deg=-45, offset=2.
+                        sections=planar_offsets, angle_deg=-0, offset=2.
                     )
 
                     layer_num: int = -1
-                    # draw_slice(planar_offsets[layer_num], [filling[layer_num]])
+                    draw_slice(planar_offsets[layer_num], [filling[layer_num]])
 
-                    lines: list[list[tuple[Any]]] = [
-                        list(zip(*geo.coords.xy)) for geo in filling[layer_num].geoms
-                    ]
+                    # lines_coord: list[list[tuple[Any]]] = [
+                    #     list(zip(*geo.coords.xy)) for geo in filling[layer_num].geoms
+                    # ]
+                    #
+                    # points: list[np.ndarray] = []
+                    # for line in lines_coord:
+                    #     for point in line:
+                    #         points.append(np.array(point))
+                    #
+                    # point_attributes: list[tuple[int, dict[str, np.ndarray]]] = [
+                    #     (idx, {"pos": pos}) for idx, pos in enumerate(points)
+                    # ]
 
-                    points: list[np.ndarray] = []
-                    for line in lines:
-                        for point in line:
-                            points.append(np.array(point))
+                    # G: nx.Graph = nx.Graph()
+                    # G.add_nodes_from(point_attributes)
+                    # G.add_edges_from(nx.geometric_edges(G, radius=.55))
+                    # nx.draw(G, pos=nx.get_node_attributes(G, "pos"), node_size=10, with_labels=False)
+                    # plt.show()
 
-                    point_attributes: list[tuple[int, dict[str, np.ndarray]]] = [
-                        (idx, {"pos": pos}) for idx, pos in enumerate(points)
-                    ]
+                    # connected_graphs: list[nx.Graph] = [G.subgraph(c).copy() for c in nx.connected_components(G)]
+                    # print(connected_graphs[0].nodes)
+                    # nx.draw(connected_graphs[0], pos=nx.get_node_attributes(G, "pos"), node_size=10, with_labels=True)
+                    # plt.show()
 
-                    G: nx.Graph = nx.Graph()
-                    G.add_nodes_from(point_attributes)
-                    # G.add_edges_from(nx.geometric_edges(G, radius=2.7))
-                    nx.draw(G, pos=nx.get_node_attributes(G, "pos"), node_size=10, with_labels=False)
-                    plt.show()
+                    # for node in connected_graphs[0]:
+                    #     edge_dict: dict[int, dict] = connected_graphs[0][node]
+                    #     for neighbour in edge_dict.keys():
+                    #         dist: float = point_vectors[node].distanceToPoint(point_vectors[neighbour])
+                    #         connected_graphs[0][node][neighbour]["weight"] = dist
+
+                    # tsp: Callable = nx.approximation.traveling_salesman_problem
+                    # solution: list[int] = tsp(connected_graphs[0], nodes=[], cycle=False)
+                    # H: nx.Graph = nx.Graph()
+                    # nx.add_path(H, solution)
+                    # nx.draw(H, pos=nx.get_node_attributes(G, "pos"), node_size=10, with_labels=False)
+                    # plt.show()
+
+
 
                 else:
                     print("No solid selected.")
