@@ -3,8 +3,8 @@ from math import sqrt
 from itertools import accumulate
 
 import numpy as np
-from shapely import segmentize
-from shapely.geometry import Point, LineString, MultiLineString, Polygon, MultiPolygon
+from shapely import intersection_all
+from shapely.geometry import Point, MultiPoint, LineString, MultiLineString, Polygon, MultiPolygon
 from shapely.affinity import rotate
 from shapely.plotting import plot_line, plot_polygon
 import matplotlib.pyplot as plt
@@ -48,7 +48,7 @@ def draw_slice(polygons: list[Union[Polygon, MultiPolygon]], lines: list[MultiLi
             plot_polygon(polygon, ax=ax, facecolor="#fff", edgecolor=BLUE, alpha=0.5, add_points=False)
 
     for line in lines:
-        plot_line(line, ax=ax, color=GRAY, alpha=0.5, add_points=True)  # type: ignore
+        plot_line(line, ax=ax, color=GRAY, alpha=0.5, add_points=False)  # type: ignore
 
     plt.show()
 
@@ -110,47 +110,62 @@ def fill_zig_zag(sections: list[list[MultiPolygon]], angle_deg: float, offset: f
         for filling_sub_area in filling_area.geoms:
             filling_centroid: Point = filling_sub_area.centroid
             rotated_filling_area: MultiPolygon = rotate(filling_sub_area, angle_deg, filling_centroid)
-            shrunk_filling_area: MultiPolygon = rotated_filling_area.buffer(-0.01)
+            shrunk_filling_area: MultiPolygon = rotated_filling_area.buffer(-0.1)
             min_x, min_y, max_x, max_y = shrunk_filling_area.bounds
 
             fill_height: float = max_y - min_y
-            major_count: int = int(np.round(fill_height / offset, 0))
-            major_width: float = fill_height / major_count
+            hatch_line_count: int = int(np.round(fill_height / offset, 0))
+            hatch_line_distance: float = fill_height / hatch_line_count
 
-            minor_count: int = 1
-            major_coords: list[list[tuple[float, float]]] = []
-            minor_coords: list[list[tuple[float, float]]] = []
-
-            if fill_height > major_width:
-                y_pos: np.ndarray = np.arange(
+            hatch_line_coords: list[list[tuple[float, float]]] = []
+            if fill_height > hatch_line_distance:
+                hatch_y_pos: np.ndarray = np.arange(
                     start=min_y,
-                    stop=max_y + (major_width / (minor_count + 1)),
-                    step=major_width / (minor_count + 1)
+                    stop=max_y + hatch_line_distance,
+                    step=hatch_line_distance
                 )
-
-                hatch_count: int = 0
-                for y in y_pos:
-                    if hatch_count % (minor_count + 1) == 0:
-                        major_coords.append([(min_x, y), (max_x, y)])
-                    else:
-                        minor_coords.append([(min_x, y), (max_x, y)])
-                    hatch_count += 1
-
+                for y in hatch_y_pos:
+                    hatch_line_coords.append([(min_x - 2, y), (max_x + 2, y)])
             else:
-                major_coords: list[list[tuple[float, float]]] = [
-                    [(min_x, min_y + (fill_height / 2)), (max_x, min_y + (fill_height / 2))]
+                hatch_line_coords: list[list[tuple[float, float]]] = [
+                    [(min_x - 2, min_y + (fill_height / 2)), (max_x + 2, min_y + (fill_height / 2))]
                 ]
 
-            major_hatch: MultiLineString = rotate(MultiLineString(major_coords), -angle_deg, filling_centroid)
-            major_trimmed_hatch: Any = major_hatch.intersection(filling_sub_area)
-            if type(major_trimmed_hatch) in (LineString, MultiLineString) and not major_trimmed_hatch.is_empty:
-                major_trimmed_hatch: Union[LineString, MultiLineString] = segmentize(major_trimmed_hatch, 1)
-                temp_result: MultiLineString = temp_result.union(major_trimmed_hatch)
+            hatch: MultiLineString = rotate(MultiLineString(hatch_line_coords), -angle_deg, filling_centroid)
+            hatch_intersections: list[int] = [
+                len(item.geoms) for item in filling_sub_area.boundary.intersection(hatch.geoms) if not item.is_empty
+            ]
+            print(len(result), ":", hatch_intersections)
 
-            minor_hatch: MultiLineString = rotate(MultiLineString(minor_coords), -angle_deg, filling_centroid)
-            minor_trimmed_hatch: Any = minor_hatch.intersection(filling_sub_area)
-            if type(minor_trimmed_hatch) in (LineString, MultiLineString) and not minor_trimmed_hatch.is_empty:
-                temp_result: MultiLineString = temp_result.union(minor_trimmed_hatch)
+            sorted_intersection_ids: list[list[int]] = []
+            group: list[int] = []
+            intersect_count: int = 0
+            for idx, num in enumerate(hatch_intersections):
+                if num == intersect_count:
+                    group.append(idx)
+                else:
+                    sorted_intersection_ids.append(group)
+                    group: list[int] = [num]
+                    intersect_count = num
+            else:
+                sorted_intersection_ids.append(group)
+            print(sorted_intersection_ids)
+
+
+
+
+            temp_result: MultiLineString = temp_result.union(hatch)
+
+            # intersection_count: list[int] = []
+            # for line in hatch.geoms:
+            #     if type(filling_sub_area.boundary.intersection(line)) is MultiPoint:
+            #         intersection_count.append(len(filling_sub_area.boundary.intersection(line).geoms))
+            #
+            # print(intersection_count)
+            # trimmed_hatch: Any = hatch.intersection(filling_sub_area)
+            # if type(trimmed_hatch) in (LineString, MultiLineString) and not trimmed_hatch.is_empty:
+                # trimmed_hatch: Union[LineString, MultiLineString] = segmentize(trimmed_hatch, 1)
+                # temp_result: MultiLineString = temp_result.union(hatch)
 
         result.append(temp_result)
 
@@ -178,45 +193,6 @@ if __name__ == "__main__":
 
                     layer_num: int = -1
                     draw_slice(planar_offsets[layer_num], [filling[layer_num]])
-
-                    # lines_coord: list[list[tuple[Any]]] = [
-                    #     list(zip(*geo.coords.xy)) for geo in filling[layer_num].geoms
-                    # ]
-                    #
-                    # points: list[np.ndarray] = []
-                    # for line in lines_coord:
-                    #     for point in line:
-                    #         points.append(np.array(point))
-                    #
-                    # point_attributes: list[tuple[int, dict[str, np.ndarray]]] = [
-                    #     (idx, {"pos": pos}) for idx, pos in enumerate(points)
-                    # ]
-
-                    # G: nx.Graph = nx.Graph()
-                    # G.add_nodes_from(point_attributes)
-                    # G.add_edges_from(nx.geometric_edges(G, radius=.55))
-                    # nx.draw(G, pos=nx.get_node_attributes(G, "pos"), node_size=10, with_labels=False)
-                    # plt.show()
-
-                    # connected_graphs: list[nx.Graph] = [G.subgraph(c).copy() for c in nx.connected_components(G)]
-                    # print(connected_graphs[0].nodes)
-                    # nx.draw(connected_graphs[0], pos=nx.get_node_attributes(G, "pos"), node_size=10, with_labels=True)
-                    # plt.show()
-
-                    # for node in connected_graphs[0]:
-                    #     edge_dict: dict[int, dict] = connected_graphs[0][node]
-                    #     for neighbour in edge_dict.keys():
-                    #         dist: float = point_vectors[node].distanceToPoint(point_vectors[neighbour])
-                    #         connected_graphs[0][node][neighbour]["weight"] = dist
-
-                    # tsp: Callable = nx.approximation.traveling_salesman_problem
-                    # solution: list[int] = tsp(connected_graphs[0], nodes=[], cycle=False)
-                    # H: nx.Graph = nx.Graph()
-                    # nx.add_path(H, solution)
-                    # nx.draw(H, pos=nx.get_node_attributes(G, "pos"), node_size=10, with_labels=False)
-                    # plt.show()
-
-
 
                 else:
                     print("No solid selected.")
