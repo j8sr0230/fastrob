@@ -107,6 +107,7 @@ def fill_zig_zag(sections: list[list[MultiPolygon]], angle_deg: float, offset: f
         filling_area: MultiPolygon = layer_section[-1]
 
         temp_result: MultiLineString = MultiLineString()
+
         for filling_sub_area in filling_area.geoms:
             filling_centroid: Point = filling_sub_area.centroid
             rotated_filling_area: MultiPolygon = rotate(filling_sub_area, angle_deg, filling_centroid)
@@ -130,44 +131,23 @@ def fill_zig_zag(sections: list[list[MultiPolygon]], angle_deg: float, offset: f
                 hatch_line_coords: list[list[tuple[float, float]]] = [
                     [(min_x - 2, min_y + (fill_height / 2)), (max_x + 2, min_y + (fill_height / 2))]
                 ]
-
             hatch: MultiLineString = rotate(MultiLineString(hatch_line_coords), -angle_deg, filling_centroid)
-            hatch_intersections: list[int] = [
-                len(item.geoms) for item in filling_sub_area.boundary.intersection(hatch.geoms) if not item.is_empty
-            ]
-            print(len(result), ":", hatch_intersections)
 
-            sorted_intersection_ids: list[list[int]] = []
-            group: list[int] = []
-            intersect_count: int = 0
-            for idx, num in enumerate(hatch_intersections):
-                if num == intersect_count:
-                    group.append(idx)
-                else:
-                    sorted_intersection_ids.append(group)
-                    group: list[int] = [num]
-                    intersect_count = num
-            else:
-                sorted_intersection_ids.append(group)
-            print(sorted_intersection_ids)
+            last_intersection_count: int = 0
+            hatch_grp: MultiLineString = MultiLineString()
+            for line in hatch.geoms:
+                intersections: Any = filling_sub_area.boundary.intersection(line)
+                if type(intersections) is MultiPoint:
+                    current_intersection_count: int = len(intersections.geoms)
+                    trimmed_line: Any = filling_sub_area.intersection(line)
+
+                    if current_intersection_count != last_intersection_count:
+                        temp_result: MultiLineString = temp_result.union(hatch_grp)
+                        hatch_grp: MultiLineString = MultiLineString()
 
 
 
-
-            temp_result: MultiLineString = temp_result.union(hatch)
-
-            # intersection_count: list[int] = []
-            # for line in hatch.geoms:
-            #     if type(filling_sub_area.boundary.intersection(line)) is MultiPoint:
-            #         intersection_count.append(len(filling_sub_area.boundary.intersection(line).geoms))
-            #
-            # print(intersection_count)
-            # trimmed_hatch: Any = hatch.intersection(filling_sub_area)
-            # if type(trimmed_hatch) in (LineString, MultiLineString) and not trimmed_hatch.is_empty:
-                # trimmed_hatch: Union[LineString, MultiLineString] = segmentize(trimmed_hatch, 1)
-                # temp_result: MultiLineString = temp_result.union(hatch)
-
-        result.append(temp_result)
+        # result.append(temp_result)
 
     return result
 
