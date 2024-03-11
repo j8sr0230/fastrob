@@ -100,7 +100,7 @@ def offset_sections(sections: list[MultiPolygon], offsets: tuple[float, ...]) ->
     return result
 
 
-def fill_zig_zag(sections: list[list[MultiPolygon]], angle_deg: float, width: float) -> list[MultiLineString]:
+def fill_zig_zag(sections: list[list[MultiPolygon]], angle_deg: float, offset: float) -> list[MultiLineString]:
     result: list[MultiLineString] = []
 
     for layer_section in sections:
@@ -110,37 +110,36 @@ def fill_zig_zag(sections: list[list[MultiPolygon]], angle_deg: float, width: fl
         for filling_sub_area in filling_area.geoms:
             filling_centroid: Point = filling_sub_area.centroid
             rotated_filling_area: MultiPolygon = rotate(filling_sub_area, angle_deg, filling_centroid)
-            min_x, min_y, max_x, max_y = rotated_filling_area.bounds
+            shrunk_filling_area: MultiPolygon = rotated_filling_area.buffer(-0.01)
+            min_x, min_y, max_x, max_y = shrunk_filling_area.bounds
 
             fill_height: float = max_y - min_y
-            major_count: int = int(np.round(fill_height / width, 0))
-            # major_step_height: float = fill_height / major_count
-            calculated_height: float = width * major_count
-            fill_y_offset: float = (fill_height - calculated_height) / 2
-            fill_y_start: float = min_y + width/2 + fill_y_offset
-            minor_count: int = 1
+            major_count: int = int(np.round(fill_height / offset, 0))
+            major_width: float = fill_height / major_count
 
+            minor_count: int = 1
             major_coords: list[list[tuple[float, float]]] = []
             minor_coords: list[list[tuple[float, float]]] = []
-            # if fill_height > width:
-            y_pos: np.ndarray = np.arange(
-                start=fill_y_start,
-                stop=max_y,
-                step=width / minor_count
-            )
 
-            hatch_count: int = 0
-            for y in y_pos:
-                if hatch_count % (minor_count + 1) == 0:
-                    major_coords.append([(min_x, y), (max_x, y)])
-                else:
-                    minor_coords.append([(min_x, y), (max_x, y)])
-                hatch_count += 1
+            if fill_height > major_width:
+                y_pos: np.ndarray = np.arange(
+                    start=min_y,
+                    stop=max_y + (major_width / (minor_count + 1)),
+                    step=major_width / (minor_count + 1)
+                )
 
-            # else:
-            #     major_coords: list[list[tuple[float, float]]] = [
-            #         [(min_x, fill_y_start + (fill_height / 2)), (max_x, fill_y_start + (fill_height / 2))]
-            #     ]
+                hatch_count: int = 0
+                for y in y_pos:
+                    if hatch_count % (minor_count + 1) == 0:
+                        major_coords.append([(min_x, y), (max_x, y)])
+                    else:
+                        minor_coords.append([(min_x, y), (max_x, y)])
+                    hatch_count += 1
+
+            else:
+                major_coords: list[list[tuple[float, float]]] = [
+                    [(min_x, min_y + (fill_height / 2)), (max_x, min_y + (fill_height / 2))]
+                ]
 
             major_hatch: MultiLineString = rotate(MultiLineString(major_coords), -angle_deg, filling_centroid)
             major_trimmed_hatch: Any = major_hatch.intersection(filling_sub_area)
@@ -157,47 +156,6 @@ def fill_zig_zag(sections: list[list[MultiPolygon]], angle_deg: float, width: fl
 
     return result
 
-# def zig_zag_lines(polygon: Polygon, angle_deg: float, seam_width: float, connected: bool) -> list[LineString]:
-#     rotated_poly: Polygon = rotate(polygon, angle=angle_deg, origin="centroid", use_radians=False)
-#     min_x, min_y, max_x, max_y = rotated_poly.bounds
-#
-#     hatch_count: int = int(round((max_y-min_y) / seam_width, 0))
-#     hatch_y_pos: np.ndarray = np.linspace(min_y, max_y, hatch_count)
-#
-#     hatch_y_coords: list[list[tuple[float, float]]] = []
-#     for idx, y_pos in enumerate(hatch_y_pos):
-#         if idx % 2 == 0:
-#             hatch_y_coords.append([(min_x, y_pos), (max_x, y_pos)])
-#         else:
-#             hatch_y_coords.append([(max_x, y_pos), (min_x, y_pos)])
-#     hatch: MultiLineString = rotate(
-#         MultiLineString(hatch_y_coords), angle=-angle_deg, origin=polygon.centroid, use_radians=False
-#     )
-#
-#     trimmed_hatch: Any = hatch.intersection(polygon)
-#
-#     flat_trimmed_hatch: list[LineString] = []
-#     if type(trimmed_hatch) is LineString:
-#         if trimmed_hatch.length > 0:
-#             flat_trimmed_hatch.append(trimmed_hatch)
-#     elif hasattr(trimmed_hatch, "geoms"):
-#         for item in trimmed_hatch.geoms:
-#             if type(item) is LineString and item.length > 0:
-#                 flat_trimmed_hatch.append(item)
-#
-#     connectors: list[LineString] = []
-#     for idx, hatch_l in enumerate(flat_trimmed_hatch):
-#         if idx < len(flat_trimmed_hatch) - 1:
-#             next_hatch_line: LineString = flat_trimmed_hatch[idx + 1]
-#             print(hatch_l.coords.xy[1], next_hatch_line.coords.xy[0])
-#             print()
-#             # connector: LineString = LineString(
-#             #     [hatch_line.coords.xy[1], next_hatch_line.coords.xy[0]]
-#             # )
-#             # connectors.append(connector)
-#             # flat_trimmed_hatch.append(connector)
-#     return flat_trimmed_hatch
-
 
 if __name__ == "__main__":
     if App.ActiveDocument:
@@ -212,14 +170,13 @@ if __name__ == "__main__":
 
                     planar_cuts: list[MultiPolygon] = slice_solid(solid=target_solid, layer_height=5)
                     planar_offsets: list[list[MultiPolygon]] = offset_sections(
-                        sections=planar_cuts, offsets=(0., 2., 2., 1.)
+                        sections=planar_cuts, offsets=(0., 2., 1.)
                     )
                     filling: list[MultiLineString] = fill_zig_zag(
-                        sections=planar_offsets, angle_deg=-0, width=2
+                        sections=planar_offsets, angle_deg=-45, offset=2.
                     )
-                    # print([type(f) for f in filling])
 
-                    layer_num: int = -2
+                    layer_num: int = -1
                     draw_slice(planar_offsets[layer_num], [filling[layer_num]])
                     coords: Any = [geo.coords.xy for geo in filling[layer_num].geoms]
 
