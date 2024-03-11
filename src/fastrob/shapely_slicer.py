@@ -1,14 +1,13 @@
-from typing import Any, Union, Callable, cast
+from typing import Union, cast
 from math import sqrt
-from itertools import accumulate
+from itertools import accumulate, chain
 
 import numpy as np
-from shapely import intersection_all
-from shapely.geometry import Point, MultiPoint, LineString, MultiLineString, Polygon, MultiPolygon
+from shapely.geometry import Point, LineString, MultiLineString, Polygon, MultiPolygon
 from shapely.affinity import rotate
+from shapely.ops import linemerge
 from shapely.plotting import plot_line, plot_polygon
 import matplotlib.pyplot as plt
-import networkx as nx
 
 import FreeCADGui as Gui
 import FreeCAD as App
@@ -48,7 +47,7 @@ def draw_slice(polygons: list[Union[Polygon, MultiPolygon]], lines: list[MultiLi
             plot_polygon(polygon, ax=ax, facecolor="#fff", edgecolor=BLUE, alpha=0.5, add_points=False)
 
     for line in lines:
-        plot_line(line, ax=ax, color=GRAY, alpha=0.5, add_points=False)  # type: ignore
+        plot_line(line, ax=ax, color=GREEN, alpha=0.5, add_points=False)  # type: ignore
 
     plt.show()
 
@@ -104,72 +103,82 @@ def fill_zig_zag(sections: list[list[MultiPolygon]], angle_deg: float, offset: f
     result: list[MultiLineString] = []
 
     for layer_section in sections:
-        filling_area: MultiPolygon = layer_section[-1]
+        layer_infill: Union[LineString, MultiLineString] = MultiLineString()
 
-        temp_result: MultiLineString = MultiLineString()
+        filling_area: MultiPolygon = layer_section[-1] if len(layer_section) > 0 else MultiPolygon()
 
-        for sub_area in filling_area.geoms:
-            filling_centroid: Point = sub_area.centroid
-            rotated_filling_area: MultiPolygon = rotate(sub_area, angle_deg, filling_centroid)
-            shrunk_filling_area: MultiPolygon = rotated_filling_area.buffer(-0.1)
-            min_x, min_y, max_x, max_y = shrunk_filling_area.bounds
+        if not filling_area.is_empty:
+            for sub_area in filling_area.geoms:
+                filling_centroid: Point = sub_area.centroid
+                rotated_filling_area: MultiPolygon = rotate(sub_area, angle_deg, filling_centroid)
+                shrunk_filling_area: MultiPolygon = rotated_filling_area.buffer(-0.1)
+                min_x, min_y, max_x, max_y = shrunk_filling_area.bounds
 
-            fill_height: float = max_y - min_y
-            hatch_line_count: int = int(np.round(fill_height / offset, 0))
-            hatch_line_distance: float = fill_height / hatch_line_count
+                height: float = max_y - min_y
+                hatch_count: int = int(np.round(height / offset, 0))
+                hatch_dist: float = height / hatch_count
 
-            hatch_line_coords: list[list[tuple[float, float]]] = []
-            if fill_height > hatch_line_distance:
-                hatch_y_pos: np.ndarray = np.arange(
-                    start=round(min_y, 2),
-                    stop=round(max_y + hatch_line_distance, 2),
-                    step=round(hatch_line_distance, 2)
-                )
-                for y in hatch_y_pos:
-                    hatch_line_coords.append([(min_x - 2, y), (max_x + 2, y)])
-            else:
-                hatch_line_coords: list[list[tuple[float, float]]] = [
-                    [(min_x - 2, min_y + (fill_height / 2)), (max_x + 2, min_y + (fill_height / 2))]
-                ]
-            hatch: MultiLineString = rotate(MultiLineString(hatch_line_coords), -angle_deg, filling_centroid)
-            temp_result: MultiLineString = temp_result.union(hatch)
-
-            trimmed_hatch: list[Union[LineString, MultiLineString]] = [
-                sub_area.intersection(line) for line in hatch.geoms if not line.is_empty
-            ]
-            nested_trimmed_hatch: list[list[LineString]] = [
-               [item] if type(item) is LineString else list(item.geoms) for item in trimmed_hatch
-            ]
-
-            nested_hatch_groups: list[list[list[LineString]]] = []
-            nested_sub_grp: list[list[LineString]] = []
-            hatch_grp_length: int = len(nested_trimmed_hatch[0]) if len(nested_trimmed_hatch) > 0 else 0
-            for hatch_grp in nested_trimmed_hatch:
-                if hatch_grp_length == len(hatch_grp):
-                    nested_sub_grp.append(hatch_grp)
+                if height > hatch_dist:
+                    coords: list[list[tuple[float, float]]] = [
+                        [(min_x - 2, y), (max_x + 2, y)] for y in np.arange(min_y, max_y + hatch_dist, hatch_dist)
+                    ]
                 else:
-                    nested_hatch_groups.append(nested_sub_grp)
-                    nested_sub_grp: list[list[LineString]] = [hatch_grp]
-                    hatch_grp_length: int = len(hatch_grp)
-            else:
-                nested_hatch_groups.append(nested_sub_grp)
+                    coords: list[list[tuple[float, float]]] = [
+                        [(min_x - 2, min_y + (height / 2)), (max_x + 2, min_y + (height / 2))]
+                    ]
 
-            print("ne", nested_hatch_groups)
-            print()
-            # intersection_count: int = 0
-            # hatch_grp: list[MultiLineString = MultiLineString()
-            # for line in hatch.geoms:
-            #     intersections: Any = sub_area.boundary.intersection(line)
-            #     if type(intersections) is MultiPoint:
-            #         current_intersection_count: int = len(intersections.geoms)
-            #         trimmed_line: Any = sub_area.intersection(line)
-            #
-            #         if current_intersection_count != intersection_count:
-            #             temp_result: MultiLineString = temp_result.union(hatch_grp)
-            #             hatch_grp: MultiLineString = MultiLineString()
-        print()
-        print()
-        result.append(temp_result)
+                hatch: MultiLineString = rotate(MultiLineString(coords), -angle_deg, filling_centroid)
+
+                trimmed_hatch: list[Union[LineString, MultiLineString]] = [
+                    sub_area.intersection(line) for line in hatch.geoms if not line.is_empty
+                ]
+                nested_trimmed_hatch: list[list[LineString]] = [
+                   [item] if type(item) is LineString else list(item.geoms) for item in trimmed_hatch
+                ]
+
+                hatch_groups: list[list[list[LineString]]] = []
+                hatch_group: list[list[LineString]] = []
+                grp_length: int = len(nested_trimmed_hatch[0])
+
+                for sub_list in nested_trimmed_hatch:
+                    if grp_length == len(sub_list):
+                        hatch_group.append(sub_list)
+                    else:
+                        hatch_groups.append(hatch_group)
+                        hatch_group: list[list[LineString]] = [sub_list]
+                        grp_length: int = len(sub_list)
+                else:
+                    hatch_groups.append(hatch_group)
+
+                sorted_hatch_groups: list[list[LineString]] = []
+                for hatch_group in hatch_groups:
+                    if len(hatch_group[0]) == 1:
+                        sorted_hatch_groups.append(list(chain.from_iterable(hatch_group)))
+                    else:
+                        zipped_hatch_group: list[tuple[LineString]] = list(zip(*hatch_group))
+                        zipped_hatch_group: list[list[LineString]] = [list(tpl) for tpl in zipped_hatch_group]
+                        sorted_hatch_groups.extend(zipped_hatch_group)
+
+                for sorted_hatch_group in sorted_hatch_groups:
+                    connectors: list[LineString] = []
+                    for idx, line in enumerate(sorted_hatch_group):
+                        if idx < len(sorted_hatch_group) - 1:
+                            next_line: LineString = sorted_hatch_group[idx + 1]
+                            if not line.is_empty and not next_line.is_empty:
+                                if idx % 2 == 0:
+                                    connectors.append(LineString([line.coords[1], next_line.coords[1]]))
+                                else:
+                                    connectors.append(LineString([line.coords[0], next_line.coords[0]]))
+
+                    connected_line: LineString = linemerge(
+                        [line for line in sorted_hatch_group if not line.is_empty] + connectors
+                    )
+                    layer_infill: Union[LineString, MultiLineString] = layer_infill.union(connected_line)
+
+        if type(layer_infill) is LineString:
+            layer_infill: MultiLineString = MultiLineString([layer_infill])
+
+        result.append(layer_infill)
 
     return result
 
@@ -190,10 +199,10 @@ if __name__ == "__main__":
                         sections=planar_cuts, offsets=(0., 2., 1.)
                     )
                     filling: list[MultiLineString] = fill_zig_zag(
-                        sections=planar_offsets, angle_deg=-0, offset=2.
+                        sections=planar_offsets, angle_deg=-50, offset=2.
                     )
 
-                    layer_num: int = -5
+                    layer_num: int = -1
                     draw_slice(planar_offsets[layer_num], [filling[layer_num]])
 
                 else:
