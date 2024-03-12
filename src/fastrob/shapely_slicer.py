@@ -4,7 +4,7 @@ from itertools import accumulate, chain
 
 import numpy as np
 
-from shapely import distance
+from shapely import distance, minimum_clearance
 from shapely.geometry import Point, LineString, MultiLineString, Polygon, MultiPolygon
 from shapely.affinity import rotate
 from shapely.ops import linemerge
@@ -41,6 +41,7 @@ def print_poly_data(polygons: list[list[Union[Polygon, MultiPolygon]]], layer_id
             interiors: list[Polygon] = [Polygon(poly) for poly in MultiLineString(poly.interiors).geoms]
 
             print("Type:", type(poly))
+            print("Polygons minimal clearance:", minimum_clearance(poly))
             print("Exterior type:", type(poly.exterior))
             print("Has interior:", not MultiLineString(poly.interiors).is_empty)
             print("Interior count:", len(interiors))
