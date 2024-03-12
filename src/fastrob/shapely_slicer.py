@@ -7,6 +7,8 @@ from shapely.geometry import Point, LineString, MultiLineString, Polygon, MultiP
 from shapely.affinity import rotate
 from shapely.ops import linemerge
 from shapely.plotting import plot_line, plot_polygon
+
+from matplotlib.widgets import Slider
 import matplotlib.pyplot as plt
 
 import FreeCADGui as Gui
@@ -30,7 +32,10 @@ BLACK = '#000000'
 DISCRETIZE_DISTANCE: float = 2
 
 
-def draw_slice(polygons: list[Union[Polygon, MultiPolygon]], lines: list[MultiLineString]) -> None:
+def draw_slice(
+        polygons: list[list[Union[Polygon, MultiPolygon]]], lines: list[MultiLineString]
+) -> tuple[plt.Figure, plt.Axes, Slider]:
+
     fig: plt.Figure = plt.figure(1, figsize=SIZE, dpi=90)
     ax: plt.Axes = fig.add_subplot(111)
     ax.set_title("Slice Viewer")
@@ -38,18 +43,33 @@ def draw_slice(polygons: list[Union[Polygon, MultiPolygon]], lines: list[MultiLi
     ax.set_ylabel("Y in mm")
     ax.set_aspect("equal")
 
-    for idx, polygon in enumerate(polygons):
-        if idx == 0:
-            plot_polygon(polygon, ax=ax, facecolor=GRAY, edgecolor=BLUE, alpha=0.5, add_points=False)
-        elif idx == len(polygons) - 1:
-            plot_polygon(polygon, ax=ax, facecolor=BLUE, edgecolor=BLUE, alpha=0.5, add_points=False)
-        else:
-            plot_polygon(polygon, ax=ax, facecolor="#fff", edgecolor=BLUE, alpha=0.5, add_points=False)
+    layer_ax: plt.Axes = fig.add_axes((.94, 0.2, 0.02, 0.6))
+    layer_slider: Slider = Slider(
+        ax=layer_ax,
+        label="Layer",
+        valmin=0,
+        valmax=len(polygons) - 1,
+        valinit=len(polygons) - 1,
+        orientation="vertical"
+    )
 
-    for line in lines:
-        plot_line(line, ax=ax, color=GREEN, alpha=0.5, add_points=False)  # type: ignore
+    def update(val: float) -> None:
+        for idx, polygon in enumerate(polygons[int(val)]):
+            if idx == 0:
+                plot_polygon(polygon, ax=ax, facecolor=GRAY, edgecolor=BLUE, add_points=False)
+            elif idx == len(polygons) - 1:
+                plot_polygon(polygon, ax=ax, facecolor=BLUE, edgecolor=BLUE, add_points=False)
+            else:
+                plot_polygon(polygon, ax=ax, facecolor="#fff", edgecolor=BLUE, add_points=False)
 
-    plt.show()
+        plot_line(lines[int(val)], ax=ax, color=GREEN, add_points=False)  # type: ignore
+
+        # fig.canvas.draw_idle()
+
+    layer_slider.on_changed(update)
+    update(len(polygons) - 1)
+
+    return fig, ax, layer_slider
 
 
 def slice_solid(solid: Part.Solid, layer_height: float) -> list[MultiPolygon]:
@@ -203,7 +223,9 @@ if __name__ == "__main__":
                     )
 
                     layer_num: int = -1
-                    draw_slice(planar_offsets[layer_num], [filling[layer_num]])
+                    # figure, axes, slider = draw_slice(planar_offsets[layer_num], [filling[layer_num]])
+                    figure, axes, slider = draw_slice(planar_offsets, filling)
+                    plt.show()
 
                 else:
                     print("No solid selected.")
