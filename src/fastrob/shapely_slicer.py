@@ -233,6 +233,15 @@ if __name__ == "__main__":
                     planar_offsets: list[list[MultiPolygon]] = offset_sections(
                         sections=planar_cuts, offsets=(0., 2., 1.,)
                     )
+
+                    offset_polys: list[MultiPolygon] = ([off.geoms for off in planar_offsets[-1]])
+                    for geo in MultiPolygon(offset_polys).geoms:
+                        geo: Polygon = geo
+                        print(type(geo))
+                        print(geo.exterior)
+                        print(MultiLineString(geo.interiors))
+                        print()
+
                     filling: list[MultiLineString] = fill_zig_zag(
                         sections=planar_offsets, angles_deg=[-45, 0, 45, 90], offset=2., connected=True
                     )
