@@ -29,7 +29,7 @@ GREEN = '#339933'
 RED = '#ff3333'
 BLACK = '#000000'
 
-DISCRETIZE_DISTANCE: float = 2
+DISCRETIZE_DISTANCE: float = 3
 
 
 def draw_slice(polygons: list[list[Union[Polygon, MultiPolygon]]], lines: list[MultiLineString]) -> Slider:
@@ -102,7 +102,15 @@ def offset_sections(sections: list[MultiPolygon], offsets: tuple[float, ...]) ->
     for section in sections:
         layer_offsets: list[MultiPolygon] = []
         for offset in accumulate(offsets):
-            buffer_polygon: Union[Polygon, MultiPolygon] = section.buffer(-offset)
+            buffer_polygon: MultiPolygon = section.segmentize(max_segment_length=5)
+            buffer_polygon: Union[Polygon, MultiPolygon] = buffer_polygon.buffer(
+                distance=-offset,
+                quad_segs=16,
+                cap_style="round",
+                join_style="round",
+                mitre_limit=5,
+                single_sided=False
+            )
 
             if not buffer_polygon.is_empty:
                 if type(buffer_polygon) is Polygon:
@@ -116,18 +124,23 @@ def offset_sections(sections: list[MultiPolygon], offsets: tuple[float, ...]) ->
     return result
 
 
-def fill_zig_zag(sections: list[list[MultiPolygon]], angle_deg: float, offset: float) -> list[MultiLineString]:
+def fill_zig_zag(
+        sections: list[list[MultiPolygon]], angles_deg: list[float], offset: float, connected: bool
+) -> list[MultiLineString]:
+
     result: list[MultiLineString] = []
 
-    for layer_section in sections:
+    for layer_idx, layer_section in enumerate(sections):
         layer_infill: Union[LineString, MultiLineString] = MultiLineString()
 
         filling_area: MultiPolygon = layer_section[-1] if len(layer_section) > 0 else MultiPolygon()
 
         if not filling_area.is_empty:
             for sub_area in filling_area.geoms:
-                filling_centroid: Point = sub_area.centroid
-                rotated_filling_area: MultiPolygon = rotate(sub_area, angle_deg, filling_centroid)
+                filling_center: Point = sub_area.centroid
+                rotated_filling_area: MultiPolygon = rotate(
+                    sub_area, angles_deg[layer_idx % len(angles_deg)], filling_center
+                )
                 shrunk_filling_area: MultiPolygon = rotated_filling_area.buffer(-0.1)
 
                 if not shrunk_filling_area.is_empty:
@@ -145,7 +158,9 @@ def fill_zig_zag(sections: list[list[MultiPolygon]], angle_deg: float, offset: f
                             [(min_x - 2, min_y + (height / 2)), (max_x + 2, min_y + (height / 2))]
                         ]
 
-                    hatch: MultiLineString = rotate(MultiLineString(coords), -angle_deg, filling_centroid)
+                    hatch: MultiLineString = rotate(
+                        MultiLineString(coords), -angles_deg[layer_idx % len(angles_deg)], filling_center
+                    )
 
                     trimmed_hatch: list[Union[LineString, MultiLineString]] = [
                         sub_area.intersection(line) for line in hatch.geoms if not line.is_empty
@@ -179,14 +194,16 @@ def fill_zig_zag(sections: list[list[MultiPolygon]], angle_deg: float, offset: f
 
                     for sorted_hatch_group in sorted_hatch_groups:
                         connectors: list[LineString] = []
-                        for idx, line in enumerate(sorted_hatch_group):
-                            if idx < len(sorted_hatch_group) - 1:
-                                next_line: LineString = sorted_hatch_group[idx + 1]
-                                if not line.is_empty and not next_line.is_empty:
-                                    if idx % 2 == 0:
-                                        connectors.append(LineString([line.coords[1], next_line.coords[1]]))
-                                    else:
-                                        connectors.append(LineString([line.coords[0], next_line.coords[0]]))
+
+                        if connected:
+                            for idx, line in enumerate(sorted_hatch_group):
+                                if idx < len(sorted_hatch_group) - 1:
+                                    next_line: LineString = sorted_hatch_group[idx + 1]
+                                    if not line.is_empty and not next_line.is_empty:
+                                        if idx % 2 == 0:
+                                            connectors.append(LineString([line.coords[1], next_line.coords[1]]))
+                                        else:
+                                            connectors.append(LineString([line.coords[0], next_line.coords[0]]))
 
                         connected_line: LineString = linemerge(
                             [line for line in sorted_hatch_group if not line.is_empty] + connectors
@@ -217,7 +234,7 @@ if __name__ == "__main__":
                         sections=planar_cuts, offsets=(0., 2., 1.,)
                     )
                     filling: list[MultiLineString] = fill_zig_zag(
-                        sections=planar_offsets, angle_deg=-50, offset=2.
+                        sections=planar_offsets, angles_deg=[-45, 0, 45, 90], offset=2., connected=True
                     )
 
                     App.slider = draw_slice(planar_offsets, filling)
