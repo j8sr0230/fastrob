@@ -32,10 +32,7 @@ BLACK = '#000000'
 DISCRETIZE_DISTANCE: float = 2
 
 
-def draw_slice(
-        polygons: list[list[Union[Polygon, MultiPolygon]]], lines: list[MultiLineString]
-) -> tuple[plt.Figure, plt.Axes, Slider]:
-
+def draw_slice(polygons: list[list[Union[Polygon, MultiPolygon]]], lines: list[MultiLineString]) -> Slider:
     fig: plt.Figure = plt.figure(1, figsize=SIZE, dpi=90)
     ax: plt.Axes = fig.add_subplot(111)
     ax.set_title("Slice Viewer")
@@ -54,6 +51,8 @@ def draw_slice(
     )
 
     def update(val: float) -> None:
+        ax.clear()
+
         for idx, polygon in enumerate(polygons[int(val)]):
             if idx == 0:
                 plot_polygon(polygon, ax=ax, facecolor=GRAY, edgecolor=BLUE, add_points=False)
@@ -64,12 +63,10 @@ def draw_slice(
 
         plot_line(lines[int(val)], ax=ax, color=GREEN, add_points=False)  # type: ignore
 
-        # fig.canvas.draw_idle()
-
     layer_slider.on_changed(update)
     update(len(polygons) - 1)
 
-    return fig, ax, layer_slider
+    return layer_slider
 
 
 def slice_solid(solid: Part.Solid, layer_height: float) -> list[MultiPolygon]:
@@ -222,9 +219,7 @@ if __name__ == "__main__":
                         sections=planar_offsets, angle_deg=-50, offset=2.
                     )
 
-                    layer_num: int = -1
-                    # figure, axes, slider = draw_slice(planar_offsets[layer_num], [filling[layer_num]])
-                    figure, axes, slider = draw_slice(planar_offsets, filling)
+                    App.slider = draw_slice(planar_offsets, filling)
                     plt.show()
 
                 else:
