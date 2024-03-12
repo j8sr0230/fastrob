@@ -231,19 +231,19 @@ if __name__ == "__main__":
 
                     planar_cuts: list[MultiPolygon] = slice_solid(solid=target_solid, layer_height=2)
                     planar_offsets: list[list[MultiPolygon]] = offset_sections(
-                        sections=planar_cuts, offsets=(0., 2., 1.,)
+                        sections=planar_cuts, offsets=(0., 2., 2., 1.,)
                     )
 
-                    offset_polys: list[MultiPolygon] = ([off.geoms for off in planar_offsets[-1]])
-                    for geo in MultiPolygon(offset_polys).geoms:
-                        geo: Polygon = geo
-                        print(type(geo))
-                        print(geo.exterior)
-                        print(MultiLineString(geo.interiors))
-                        print()
+                    layer_m_polys: list[MultiPolygon] = [m_poly for m_poly in planar_offsets[-1]]
+                    for m_poly in layer_m_polys:
+                        for poly in m_poly.geoms:
+                            print("Type:", type(poly))
+                            print("Exterior type:", type(poly.exterior))
+                            print("Has interior:", not MultiLineString(poly.interiors).is_empty)
+                            print()
 
                     filling: list[MultiLineString] = fill_zig_zag(
-                        sections=planar_offsets, angles_deg=[-45, 0, 45, 90], offset=2., connected=True
+                        sections=planar_offsets, angles_deg=[-45, 0, 45, 90], offset=1., connected=True
                     )
 
                     App.slider = draw_slice(planar_offsets, filling)
