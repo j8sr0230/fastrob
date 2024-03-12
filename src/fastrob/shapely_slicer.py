@@ -3,6 +3,8 @@ from math import sqrt
 from itertools import accumulate, chain
 
 import numpy as np
+
+from shapely import distance
 from shapely.geometry import Point, LineString, MultiLineString, Polygon, MultiPolygon
 from shapely.affinity import rotate
 from shapely.ops import linemerge
@@ -30,6 +32,20 @@ RED = '#ff3333'
 BLACK = '#000000'
 
 DISCRETIZE_DISTANCE: float = 3
+
+
+def print_poly_data(polygons: list[list[Union[Polygon, MultiPolygon]]], layer_idx: int) -> None:
+    layer_m_polys: list[MultiPolygon] = [m_poly for m_poly in polygons[layer_idx]]
+    for m_poly in layer_m_polys:
+        for poly in m_poly.geoms:
+            interiors: list[Polygon] = [Polygon(poly) for poly in MultiLineString(poly.interiors).geoms]
+
+            print("Type:", type(poly))
+            print("Exterior type:", type(poly.exterior))
+            print("Has interior:", not MultiLineString(poly.interiors).is_empty)
+            print("Interior count:", len(interiors))
+            print("Distance to interiors:", [distance(poly.exterior, interior) for interior in interiors])
+            print()
 
 
 def draw_slice(polygons: list[list[Union[Polygon, MultiPolygon]]], lines: list[MultiLineString]) -> Slider:
@@ -63,8 +79,11 @@ def draw_slice(polygons: list[list[Union[Polygon, MultiPolygon]]], lines: list[M
 
         plot_line(lines[int(val)], ax=ax, color=GREEN, add_points=False)  # type: ignore
 
+        print_poly_data(polygons, int(val))
+
     layer_slider.on_changed(update)
     update(len(polygons) - 1)
+    print_poly_data(polygons, len(polygons) - 1)
 
     return layer_slider
 
@@ -233,14 +252,6 @@ if __name__ == "__main__":
                     planar_offsets: list[list[MultiPolygon]] = offset_sections(
                         sections=planar_cuts, offsets=(0., 2., 2., 1.,)
                     )
-
-                    layer_m_polys: list[MultiPolygon] = [m_poly for m_poly in planar_offsets[-1]]
-                    for m_poly in layer_m_polys:
-                        for poly in m_poly.geoms:
-                            print("Type:", type(poly))
-                            print("Exterior type:", type(poly.exterior))
-                            print("Has interior:", not MultiLineString(poly.interiors).is_empty)
-                            print()
 
                     filling: list[MultiLineString] = fill_zig_zag(
                         sections=planar_offsets, angles_deg=[-45, 0, 45, 90], offset=1., connected=True
