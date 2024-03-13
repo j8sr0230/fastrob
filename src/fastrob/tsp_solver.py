@@ -36,7 +36,7 @@ if __name__ == "__main__":
 
                     tsp: Callable = nx.approximation.traveling_salesman_problem
                     solution: list[int] = tsp(G, nodes=G.nodes, cycle=False)
-                    # (solution)
+                    # print(solution)
 
                     H: nx.Graph = nx.Graph()
                     nx.add_path(H, solution)
