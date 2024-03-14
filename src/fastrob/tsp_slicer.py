@@ -1,4 +1,4 @@
-from typing import cast, Callable
+from typing import cast
 
 import networkx as nx
 import matplotlib.pyplot as plt
@@ -31,17 +31,17 @@ if __name__ == "__main__":
                         G.add_node(v_end_id, pos=(v_end.X, v_end.Y))
                         G.add_edge(v_start_id, v_end_id, weight=edge.Length)
 
-                    # nx.draw(G, pos=nx.get_node_attributes(G, "pos"), node_size=10, with_labels=False)
-                    # plt.show()
-
-                    tsp: Callable = nx.approximation.traveling_salesman_problem
-                    solution: list[int] = tsp(G, nodes=G.nodes, cycle=False)
-                    # print(solution)
-
-                    H: nx.Graph = nx.Graph()
-                    nx.add_path(H, solution)
-                    nx.draw(H, pos=nx.get_node_attributes(G, "pos"), node_size=10, with_labels=False)
+                    nx.draw(G, pos=nx.get_node_attributes(G, "pos"), node_size=10, with_labels=False)
                     plt.show()
+
+                    # tsp: Callable = nx.approximation.traveling_salesman_problem
+                    # solution: list[int] = tsp(G, nodes=list(G.nodes), cycle=False)
+                    # print(len(solution))
+                    #
+                    # H: nx.Graph = nx.Graph()
+                    # nx.add_path(H, solution)
+                    # nx.draw(H, pos=nx.get_node_attributes(G, "pos"), node_size=10, with_labels=False)
+                    # plt.show()
 
                 else:
                     print("Selection has no edges.")
