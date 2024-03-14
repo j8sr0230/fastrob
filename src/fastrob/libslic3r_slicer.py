@@ -1,3 +1,4 @@
+import os
 import subprocess
 
 from gcodeparser import GcodeParser, GcodeLine
@@ -64,17 +65,18 @@ def slice_stl(stl_file_path: str = "", layer_height: float = 2, seam_width: floa
 
 
 if __name__ == "__main__":
-    target_path: str = "./resources/cuboid"
+    dir_path: str = os.path.dirname(os.path.realpath(__file__))
+    target_stl: str = dir_path + "/resources/cuboid"
 
     slicer_process: subprocess.CompletedProcess = slice_stl(
-        stl_file_path=target_path + ".stl", layer_height=2, seam_width=4, perimeters_num=1, fill_pattern=RECT,
+        stl_file_path=target_stl + ".stl", layer_height=2, seam_width=4, perimeters_num=1, fill_pattern=RECT,
         fill_density=100, infill_angle=45, infill_anchor_max=10
     )
 
     print(slicer_process.stdout)
     print(slicer_process.stderr)
 
-    with open(target_path + ".gcode", "r") as f:
+    with open(target_stl + ".gcode", "r") as f:
         gcode_str: str = f.read()
 
     gcode: list[GcodeLine] = GcodeParser(gcode=gcode_str, include_comments=False).lines
