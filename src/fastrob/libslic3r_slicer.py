@@ -31,7 +31,7 @@ def slice_stl(stl_file_path: str = "", layer_height: float = 2, seam_width: floa
               infill_anchor_max: int = 100) -> subprocess.CompletedProcess:
 
     slice_cmd: str = (
-            "prusa-slicer-console.exe "  
+            "superslicer_console.exe "  # "prusa-slicer-console.exe "  
         
             # [ ACTIONS ]
             "--export-gcode " +
@@ -40,12 +40,14 @@ def slice_stl(stl_file_path: str = "", layer_height: float = 2, seam_width: floa
             "--dont-arrange " +
 
             # [ OPTIONS ]
-            "--nozzle-diameter 10 " +
+            "--nozzle-diameter 5 " +
             "--layer-height " + str(layer_height) + " " +
-            "--extrusion-width " + str(seam_width) + " " +
-            "--solid-layers 0 " +
+            # "--extrusion-width " + str(seam_width) + " " +
+            "--extrusion-spacing " + str(3) + " " +
+            # "--solid-layers 0 " +
             "--perimeters " + str(perimeters_num) + " " +
             "--fill-pattern " + str(fill_pattern) + " "
+            # "infill-overlap 50% "
     )
 
     if fill_pattern == RECT:
@@ -66,11 +68,11 @@ def slice_stl(stl_file_path: str = "", layer_height: float = 2, seam_width: floa
 
 if __name__ == "__main__":
     dir_path: str = os.path.dirname(os.path.realpath(__file__))
-    target_stl: str = dir_path + "/resources/cuboid"
+    target_stl: str = str(os.path.join(dir_path, "resources", "cuboid"))
 
     slicer_process: subprocess.CompletedProcess = slice_stl(
-        stl_file_path=target_stl + ".stl", layer_height=2, seam_width=4, perimeters_num=1, fill_pattern=RECT,
-        fill_density=100, infill_angle=45, infill_anchor_max=10
+        stl_file_path=target_stl + ".stl", layer_height=2, seam_width=5, perimeters_num=0, fill_pattern=RECT,
+        fill_density=100, infill_angle=0, infill_anchor_max=0
     )
 
     print(slicer_process.stdout)
