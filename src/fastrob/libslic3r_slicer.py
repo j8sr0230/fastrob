@@ -1,10 +1,14 @@
 import os
 import subprocess
 
+import numpy as np
+
 from gcodeparser import GcodeParser, GcodeLine
 
+import FreeCAD as Gui
+import Part
+import Points
 
-DEBUG: bool = True
 
 # FILLING patterns
 RECT: str = "rectilinear"
@@ -25,6 +29,8 @@ ADAPTIVE_CUBOID: str = "adaptivecubic"
 SUPPORT_CUBICS: str = "supportcubic"
 LIGHT: str = "lightning"
 
+DEBUG: bool = True
+
 
 def slice_stl(file: str = "", layer_height: float = 2, seam_width: float = 6, overlap: int = 50, perimeters: int = 1,
               fill_pattern: str = RECT, fill_density: int = 100, infill_angle: float = 45,
@@ -41,7 +47,7 @@ def slice_stl(file: str = "", layer_height: float = 2, seam_width: float = 6, ov
 
             # [ OPTIONS ]
             "--nozzle-diameter " + str((overlap / 100) * seam_width) + " " +
-            " --first-layer-height " + str(layer_height) + " " +
+            "--first-layer-height " + str(layer_height) + " " +
             "--layer-height " + str(layer_height) + " " +
             "--first-layer-extrusion-width " + str((overlap / 100) * seam_width) + " " +
             "--extrusion-width " + str((overlap / 100) * seam_width) + " " +
@@ -84,7 +90,45 @@ if __name__ == "__main__":
         with open(target_stl + ".gcode", "r") as f:
             gcode_str: str = f.read()
 
-        gcode: list[GcodeLine] = GcodeParser(gcode=gcode_str, include_comments=False).lines
-        for line in gcode:
-            # TODO: Extract paths
-            print(line)
+            gcode: list[GcodeLine] = GcodeParser(gcode=gcode_str, include_comments=False).lines
+
+            fc_paths: list[Part.Wire] = []
+            paths: list[np.ndarray] = []
+            path: list[tuple[float]] = []
+            pos: list[float] = [0., 0., 0.]
+
+            for idx, line in enumerate(gcode):
+                is_g_cmd: bool = line.command[0] == "G"
+                current_has_extrusion: bool = "E" in line.params.keys() and line.params["E"] > 0
+
+                next_has_extrusion: bool = False
+                if idx < len(gcode) - 1:
+                    next_line: GcodeLine = gcode[idx + 1]
+                    next_has_extrusion: bool = "E" in next_line.params.keys() and next_line.params["E"] > 0
+
+                if is_g_cmd:
+                    if "X" in line.params.keys():
+                        pos[0] = line.params["X"]
+                    if "Y" in line.params.keys():
+                        pos[1] = line.params["Y"]
+                    if "Z" in line.params.keys():
+                        pos[2] = line.params["Z"]
+
+                    if current_has_extrusion or (not current_has_extrusion and next_has_extrusion):
+                        path.append(tuple(pos))
+
+                    if not current_has_extrusion:
+                        if len(path) > 1:
+                            rounded_path: np.ndarray = np.round(path, 1)
+                            paths.append(rounded_path)
+
+                            pts: Points.Points = Points.Points()
+                            pts.addPoints(list(map(tuple, rounded_path)))
+                            fc_paths.append(Part.makePolygon(pts.Points))
+
+                            path: list[tuple[float]] = []
+
+            if Gui.ActiveDocument:
+                Part.show(Part.Compound(fc_paths))
+            else:
+                print(paths)
