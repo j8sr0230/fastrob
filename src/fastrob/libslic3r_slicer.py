@@ -43,8 +43,8 @@ def slice_stl(file: str = "", layer_height: float = 2, seam_width: float = 6, ov
             "--nozzle-diameter " + str((overlap / 100) * seam_width) + " " +
             " --first-layer-height " + str(layer_height) + " " +
             "--layer-height " + str(layer_height) + " " +
-            "--first-layer-extrusion-width " + str((overlap / 100) * seam_width) + " " +
-            "--extrusion-width " + str((overlap / 100) * seam_width) + " " +
+            "--first-layer-extrusion-width " + str(((overlap / 100) * seam_width) + (layer_height * (1 - 3.14/4))) + " " +
+            "--extrusion-width " + str(((overlap / 100) * seam_width) + (layer_height * (1 - 3.14/4))) + " " +
             "--solid-layers 0 " +
             "--perimeters " + str(perimeters_num) + " " +
             "--fill-pattern " + str(fill_pattern) + " " +
@@ -58,6 +58,7 @@ def slice_stl(file: str = "", layer_height: float = 2, seam_width: float = 6, ov
             file
 
         )
+    print(str(((overlap / 100) * seam_width) + (layer_height * (1 - 3.14/4))))
 
     prusa_slicer_process: subprocess.CompletedProcess = subprocess.run(
         args=slice_cmd, shell=True, capture_output=True, text=True
@@ -71,8 +72,8 @@ if __name__ == "__main__":
     target_stl: str = str(os.path.join(dir_path, "resources", "cuboid"))
 
     slicer_process: subprocess.CompletedProcess = slice_stl(
-        file=target_stl + ".stl", layer_height=2, seam_width=6, perimeters_num=1, fill_pattern=RECT,
-        fill_density=100, infill_angle=0, infill_anchor_max=10
+        file=target_stl + ".stl", layer_height=2, seam_width=5, perimeters_num=0, fill_pattern=RECT,
+        fill_density=100, infill_angle=0, infill_anchor_max=0
     )
 
     print(slicer_process.stdout)
