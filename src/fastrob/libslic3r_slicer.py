@@ -26,12 +26,12 @@ SUPPORT_CUBICS: str = "supportcubic"
 LIGHT: str = "lightning"
 
 
-def slice_stl(stl_file_path: str = "", layer_height: float = 2, seam_width: float = 6, perimeters_num: int = 1,
-              fill_pattern: str = RECT, fill_density: int = 100, infill_angle: float = 45,
+def slice_stl(file: str = "", layer_height: float = 2, seam_width: float = 6, overlap: int = 50,
+              perimeters_num: int = 1, fill_pattern: str = RECT, fill_density: int = 100, infill_angle: float = 45,
               infill_anchor_max: int = 100) -> subprocess.CompletedProcess:
 
     slice_cmd: str = (
-            "superslicer_console.exe "  # "prusa-slicer-console.exe "  
+            "prusa-slicer-console.exe "  # "superslicer_console.exe "  
         
             # [ ACTIONS ]
             "--export-gcode " +
@@ -40,24 +40,24 @@ def slice_stl(stl_file_path: str = "", layer_height: float = 2, seam_width: floa
             "--dont-arrange " +
 
             # [ OPTIONS ]
-            "--nozzle-diameter 5 " +
+            "--nozzle-diameter " + str((overlap / 100) * seam_width) + " " +
+            " --first-layer-height " + str(layer_height) + " " +
             "--layer-height " + str(layer_height) + " " +
-            # "--extrusion-width " + str(seam_width) + " " +
-            "--extrusion-spacing " + str(3) + " " +
-            # "--solid-layers 0 " +
+            "--first-layer-extrusion-width " + str((overlap / 100) * seam_width) + " " +
+            "--extrusion-width " + str((overlap / 100) * seam_width) + " " +
+            "--solid-layers 0 " +
             "--perimeters " + str(perimeters_num) + " " +
-            "--fill-pattern " + str(fill_pattern) + " "
-            # "infill-overlap 50% "
-    )
-
-    if fill_pattern == RECT:
-        slice_cmd += (
+            "--fill-pattern " + str(fill_pattern) + " " +
+            "--infill-overlap 50% " +
             "--fill-density " + str(fill_density) + "% " +
             "--fill-angle " + str(infill_angle) + " " +
-            "--infill-anchor-max " + str(infill_anchor_max) + " "
-        )
+            "--infill-anchor-max " + str(infill_anchor_max) + " " +
+            "--skirts 0 " +
 
-    slice_cmd += stl_file_path
+            # [ file.stl ... ]
+            file
+
+        )
 
     prusa_slicer_process: subprocess.CompletedProcess = subprocess.run(
         args=slice_cmd, shell=True, capture_output=True, text=True
@@ -71,16 +71,17 @@ if __name__ == "__main__":
     target_stl: str = str(os.path.join(dir_path, "resources", "cuboid"))
 
     slicer_process: subprocess.CompletedProcess = slice_stl(
-        stl_file_path=target_stl + ".stl", layer_height=2, seam_width=5, perimeters_num=0, fill_pattern=RECT,
-        fill_density=100, infill_angle=0, infill_anchor_max=0
+        file=target_stl + ".stl", layer_height=2, seam_width=6, perimeters_num=1, fill_pattern=RECT,
+        fill_density=100, infill_angle=0, infill_anchor_max=10
     )
 
     print(slicer_process.stdout)
     print(slicer_process.stderr)
 
-    with open(target_stl + ".gcode", "r") as f:
-        gcode_str: str = f.read()
+    if not slicer_process.stderr:
+        with open(target_stl + ".gcode", "r") as f:
+            gcode_str: str = f.read()
 
-    gcode: list[GcodeLine] = GcodeParser(gcode=gcode_str, include_comments=False).lines
-    for line in gcode:
-        print(line)
+        gcode: list[GcodeLine] = GcodeParser(gcode=gcode_str, include_comments=False).lines
+        for line in gcode:
+            print(line)
