@@ -64,6 +64,10 @@ class SliceInspector(QtWidgets.QWidget):
 
     def on_layer_value_change(self) -> None:
         index: int = self._layer_slider.value()
+
+        remaining_wires: np.ndarray = self._wires_by_layers[:index]
+        self._remaining_layer.Shape = Part.makeCompound(remaining_wires.flatten())
+        # print(remaining_wires)
         print("Layer:", index)
 
     def on_pos_value_change(self) -> None:
