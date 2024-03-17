@@ -31,8 +31,8 @@ class SliceInspector(QtWidgets.QWidget):
         self._layer_layout: QtWidgets.QHBoxLayout = QtWidgets.QHBoxLayout()
         self._layer_label: QtWidgets.QLabel = QtWidgets.QLabel("Layer   ")
         self._layer_slider: QtWidgets.QSlider = QtWidgets.QSlider(QtCore.Qt.Horizontal)
-        self._layer_slider.setMinimum(0)
-        self._layer_slider.setMaximum(len(slice_wires))
+        self._layer_slider.setMinimum(1)
+        self._layer_slider.setMaximum(len(self._wires_by_layers))
         self._layer_layout.addWidget(self._layer_label)
         self._layer_layout.addWidget(self._layer_slider)
         self._layout.addLayout(self._layer_layout)
@@ -65,10 +65,9 @@ class SliceInspector(QtWidgets.QWidget):
     def on_layer_value_change(self) -> None:
         index: int = self._layer_slider.value()
 
-        remaining_wires: np.ndarray = self._wires_by_layers[:index]
+        remaining_wires: np.ndarray = np.array(self._wires_by_layers[:index], dtype=object)
         self._remaining_layer.Shape = Part.makeCompound(remaining_wires.flatten())
-        # print(remaining_wires)
-        print("Layer:", index)
+        self._info_label.setText("Layer: " + str(index) + ", Pos: (X, Y, Z)")
 
     def on_pos_value_change(self) -> None:
         index: int = self._pos_slider.value()
