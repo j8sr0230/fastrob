@@ -1,5 +1,7 @@
 from typing import cast
 
+import numpy as np
+
 import PySide2.QtCore as QtCore
 import PySide2.QtWidgets as QtWidgets
 
@@ -13,6 +15,13 @@ class SliceInspector(QtWidgets.QWidget):
         super().__init__(parent)
 
         self._wires: list[Part.Wire] = slice_wires
+
+        self._layer_heights: list[float] = [wire.Vertexes[0].Z for wire in self._wires]
+        self._wire_nums: list[int] = range(len(self._wires))
+        print(self._layer_heights)
+        print(np.split(np.array(self._layer_heights), np.where(np.diff(self._layer_heights) != 0)))
+
+        self._wires_by_layer: list[list[Part.Wire]] = []
 
         self.setWindowTitle("Slice Inspector")
         self.setMinimumWidth(320)
@@ -45,6 +54,13 @@ class SliceInspector(QtWidgets.QWidget):
         self._info_layout.addWidget(self._info_label)
         self._layout.addLayout(self._info_layout)
 
+        self._current_layer: App.DocumentObject = App.ActiveDocument.addObject("Part::Feature", "current_Layer")
+        self._current_layer.Label = "Current Layer"
+        # self._current_layer.Shape = Part.makeBox(100, 100, 100)
+        self._remaining_layer: App.DocumentObject = App.ActiveDocument.addObject("Part::Feature", "remaining_layers")
+        self._remaining_layer.Label = "Remaining Layers"
+        # self._remaining_layer.Shape = Part.makeBox(100, 100, 100)
+
         cast(QtCore.SignalInstance, self._layer_slider.valueChanged).connect(self.on_layer_value_change)
         cast(QtCore.SignalInstance, self._pos_slider.valueChanged).connect(self.on_pos_value_change)
 
@@ -65,7 +81,7 @@ if __name__ == "__main__":
 
             if hasattr(selection, "Shape"):
                 selection: Part.Feature = cast(Part.Feature, selection)
-                if len(selection.Shape.Wires) > 0:
+                if len(selection.Shape.Wires) > 0 and len(selection.Shape.Vertexes) > 0:
                     slice_inspector: QtWidgets.QWidget = SliceInspector(slice_wires=selection.Shape.Wires)
                     slice_inspector.show()
                 else:
