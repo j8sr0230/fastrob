@@ -17,9 +17,9 @@ class SliceInspector(QtWidgets.QWidget):
         self._wires: list[Part.Wire] = slice_wires
 
         self._layer_heights: list[float] = [wire.Vertexes[0].Z for wire in self._wires]
-        self._wire_nums: list[int] = range(len(self._wires))
+        self._wire_nums: list[int] = list(range(len(self._wires)))
         print(self._layer_heights)
-        print(np.split(np.array(self._layer_heights), np.where(np.diff(self._layer_heights) != 0)))
+        print(np.split(np.array(self._wire_nums), np.where(np.diff(self._layer_heights) != 0)))
 
         self._wires_by_layer: list[list[Part.Wire]] = []
 
