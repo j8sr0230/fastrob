@@ -75,12 +75,23 @@ def slice_offset_zig_zag(file: str = "", layer_height: float = 2, seam_width: fl
                      fill_pattern=RECT, fill_density=100, infill_angle=infill_angle, infill_anchor_max=100)
 
 
+def slice_offset_line(file: str = "", layer_height: float = 2, seam_width: float = 6, infill_angle: float = 45
+                      ) -> subprocess.CompletedProcess:
+
+    return slice_stl(file=file, layer_height=layer_height, seam_width=seam_width, overlap=50, perimeters=1,
+                     fill_pattern=RECT, fill_density=100, infill_angle=infill_angle, infill_anchor_max=0)
+
+
 if __name__ == "__main__":
     dir_path: str = os.path.dirname(os.path.realpath(__file__))
     target_stl: str = str(os.path.join(dir_path, "resources", "cuboid"))
 
-    p: subprocess.CompletedProcess = slice_offset_zig_zag(
-        file=target_stl + ".stl", layer_height=2, seam_width=6, infill_angle=45
+    # p: subprocess.CompletedProcess = slice_offset_zig_zag(
+    #     file=target_stl + ".stl", layer_height=2, seam_width=6, infill_angle=45
+    # )
+
+    p: subprocess.CompletedProcess = slice_offset_line(
+        file=target_stl + ".stl", layer_height=2, seam_width=6, infill_angle=0
     )
 
     print(p.stdout)

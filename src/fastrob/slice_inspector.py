@@ -17,13 +17,13 @@ class SliceInspector(QtWidgets.QWidget):
         self._paths: list[Part.Wire] = paths
 
         self._path_heights: list[float] = [wire.Vertexes[0].Z for wire in self._paths]
-        self._paths_by_layers: np.ndarray = np.split(
+        self._paths_by_layers: list[np.ndarray] = np.split(
             ary=np.array(self._paths), indices_or_sections=np.where(np.diff(self._path_heights) != 0)[0] + 1
         )
 
         self._layer_index: int = 1
-        self._current_layer: np.ndarray[Part.Wire] = self._paths_by_layers[self._layer_index - 1]
-        self._remaining_layers: np.ndarray[Part.Wire] = np.array([])
+        self._current_layer: np.ndarray = self._paths_by_layers[0]
+        self._remaining_layers: np.ndarray = np.array([])
 
         self.setWindowTitle("Slice Inspector")
         self.setMinimumWidth(320)
@@ -73,12 +73,12 @@ class SliceInspector(QtWidgets.QWidget):
     def on_layer_change(self) -> None:
         self._layer_index: int = self._layer_slider.value()
 
-        self._current_layer: np.ndarray = np.array(self._paths_by_layers[self._layer_index - 1])
+        self._current_layer: np.ndarray = self._paths_by_layers[self._layer_index - 1]
         self._current_layer_obj.Shape = Part.Shape()
 
         if self._layer_index > 1:
-            self._remaining_layers: np.ndarray = np.array(self._paths_by_layers[:self._layer_index - 1])
-            self._remaining_layers_obj.Shape = Part.makeCompound(self._remaining_layers.flatten())
+            self._remaining_layers: list[np.ndarray] = self._paths_by_layers[:self._layer_index - 1]
+            self._remaining_layers_obj.Shape = Part.makeCompound(np.concatenate(self._remaining_layers))
         else:
             self._remaining_layers: np.ndarray = np.array([])
             self._remaining_layers_obj.Shape = Part.Shape()
@@ -101,7 +101,7 @@ class SliceInspector(QtWidgets.QWidget):
         started_section_id: int = np.where(accumulated_path_lengths >= pos_index)[0][0]
 
         if started_section_id > 0:
-            pos_index_offset: int = sum(accumulated_path_lengths[:started_section_id])
+            pos_index_offset: int = sum(path_lengths[:started_section_id])
         else:
             pos_index_offset: int = 0
 
