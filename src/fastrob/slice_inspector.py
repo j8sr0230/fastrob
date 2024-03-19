@@ -108,6 +108,8 @@ class SliceInspector(QtWidgets.QWidget):
         started_section: list[App.Vector] = path_positions[started_section_id][:(pos_index - pos_index_offset)]
         if len(started_section) > 1:
             completed_sections: np.ndarray = np.hstack([completed_sections, Part.makePolygon(started_section)])
+
+        if completed_sections.size > 0:
             self._current_layer_obj.Shape = Part.makeCompound(completed_sections)
         else:
             self._current_layer_obj.Shape = Part.Shape()
