@@ -21,8 +21,9 @@ class SliceInspector(QtWidgets.QWidget):
             ary=np.array(self._paths), indices_or_sections=np.where(np.diff(self._path_heights) != 0)[0] + 1
         )
 
-        self._current_layer: Part.Wire = Part.Wire()
-        self._remaining_layers: np.ndarray = np.array([])
+        self._layer_index: int = 1
+        self._current_layer: np.ndarray[Part.Wire] = self._paths_by_layers[self._layer_index - 1]
+        self._remaining_layers: np.ndarray[Part.Wire] = np.array([])
 
         self.setWindowTitle("Slice Inspector")
         self.setMinimumWidth(320)
@@ -43,15 +44,17 @@ class SliceInspector(QtWidgets.QWidget):
         self._pos_layout: QtWidgets.QHBoxLayout = QtWidgets.QHBoxLayout()
         self._pos_label: QtWidgets.QLabel = QtWidgets.QLabel("Position")
         self._pos_slider: QtWidgets.QSlider = QtWidgets.QSlider(QtCore.Qt.Horizontal)
-        self._pos_slider.setMinimum(0)
-        self._pos_slider.setMaximum(len(paths[0].Vertexes))
+        self._pos_slider.setMinimum(1)
+        self._pos_slider.setMaximum(100)
         self._pos_layout.addWidget(self._pos_label)
         self._pos_layout.addWidget(self._pos_slider)
         self._layout.addLayout(self._pos_layout)
 
         self._info_layout: QtWidgets.QHBoxLayout = QtWidgets.QHBoxLayout()
-        self._info_label: QtWidgets.QLabel = QtWidgets.QLabel("Layer: , Pos: ")
-        self._info_label.setAlignment(QtCore.Qt.AlignRight)
+        self._info_label: QtWidgets.QLabel = QtWidgets.QLabel(
+            "Layer: 1 " +
+            ", Pos 1: " + str(np.round(self._current_layer[0].Vertexes[0].Point, 1))  # noqa
+        )
         self._info_layout.addWidget(self._info_label)
         self._layout.addLayout(self._info_layout)
 
@@ -68,23 +71,51 @@ class SliceInspector(QtWidgets.QWidget):
         cast(QtCore.SignalInstance, self._pos_slider.valueChanged).connect(self.on_pos_change)
 
     def on_layer_change(self) -> None:
-        index: int = self._layer_slider.value()
+        self._layer_index: int = self._layer_slider.value()
 
-        self._current_layer: np.ndarray = np.array(self._paths_by_layers[index - 1], dtype=object)
-        self._current_layer_obj.Shape = Part.makeCompound(self._current_layer.flatten())
+        self._current_layer: np.ndarray = np.array(self._paths_by_layers[self._layer_index - 1])
+        self._current_layer_obj.Shape = Part.Shape()
 
-        if index > 1:
-            self._remaining_layers: np.ndarray = np.array(self._paths_by_layers[:index - 1], dtype=object)
+        if self._layer_index > 1:
+            self._remaining_layers: np.ndarray = np.array(self._paths_by_layers[:self._layer_index - 1])
             self._remaining_layers_obj.Shape = Part.makeCompound(self._remaining_layers.flatten())
         else:
             self._remaining_layers: np.ndarray = np.array([])
             self._remaining_layers_obj.Shape = Part.Shape()
 
-        self._info_label.setText("Layer: " + str(index) + ", Pos: ")
+        self._info_label.setText(
+            "Layer: " + str(self._layer_index) +
+            ", Pos 1: " + str(np.round(self._current_layer[0].Vertexes[0].Point, 1))  # noqa
+        )
 
     def on_pos_change(self) -> None:
-        index: int = self._pos_slider.value()
-        print("Position:", index)
+        pos_index: int = self._pos_slider.value()
+
+        path_lengths: list[int] = [len(path.Vertexes) for path in self._current_layer]
+        accumulated_path_lengths: np.ndarray = np.add.accumulate(path_lengths)
+        path_positions: list[list[App.Vector]] = [[v.Point for v in path.Vertexes] for path in self._current_layer]
+
+        self._pos_slider.setMaximum(sum(path_lengths))
+
+        completed_sections: np.ndarray = self._current_layer[accumulated_path_lengths < pos_index]
+        started_section_id: int = np.where(accumulated_path_lengths >= pos_index)[0][0]
+
+        if started_section_id > 0:
+            pos_index_offset: int = sum(accumulated_path_lengths[:started_section_id])
+        else:
+            pos_index_offset: int = 0
+
+        started_section: list[App.Vector] = path_positions[started_section_id][:(pos_index - pos_index_offset)]
+        if len(started_section) > 1:
+            completed_sections: np.ndarray = np.hstack([completed_sections, Part.makePolygon(started_section)])
+            self._current_layer_obj.Shape = Part.makeCompound(completed_sections)
+        else:
+            self._current_layer_obj.Shape = Part.Shape()
+
+        self._info_label.setText(
+            "Layer: " + str(self._layer_index) +
+            ", Pos " + str(pos_index) + ": " + str(np.round(started_section[-1], 1))  # noqa
+        )
 
 
 if __name__ == "__main__":
