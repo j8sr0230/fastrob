@@ -84,7 +84,7 @@ def slice_offset_line(file: str = "", layer_height: float = 2, seam_width: float
 
 if __name__ == "__main__":
     dir_path: str = os.path.dirname(os.path.realpath(__file__))
-    target_stl: str = str(os.path.join(dir_path, "resources", "cuboid"))
+    target_stl: str = str(os.path.join(dir_path, "resources", "pipe"))
 
     p: subprocess.CompletedProcess = slice_offset_zig_zag(
         file=target_stl + ".stl", layer_height=2, seam_width=6, infill_angle=45
