@@ -86,13 +86,13 @@ if __name__ == "__main__":
     dir_path: str = os.path.dirname(os.path.realpath(__file__))
     target_stl: str = str(os.path.join(dir_path, "resources", "cuboid"))
 
-    # p: subprocess.CompletedProcess = slice_offset_zig_zag(
-    #     file=target_stl + ".stl", layer_height=2, seam_width=6, infill_angle=45
-    # )
-
-    p: subprocess.CompletedProcess = slice_offset_line(
-        file=target_stl + ".stl", layer_height=2, seam_width=6, infill_angle=0
+    p: subprocess.CompletedProcess = slice_offset_zig_zag(
+        file=target_stl + ".stl", layer_height=2, seam_width=6, infill_angle=45
     )
+
+    # p: subprocess.CompletedProcess = slice_offset_line(
+    #     file=target_stl + ".stl", layer_height=2, seam_width=6, infill_angle=0
+    # )
 
     print(p.stdout)
     print(p.stderr)
