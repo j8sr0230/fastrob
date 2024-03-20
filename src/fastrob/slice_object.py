@@ -34,6 +34,8 @@ DEBUG: bool = True
 class SliceObject:
     def __init__(self, obj: Part.Feature) -> None:
         obj.addProperty("App::PropertyLength", "Height", "Slicing", "Layer height of the slice").Height = 2.
+        obj.addProperty("App::PropertyLength", "Width", "Slicing", "Width of the seam").Width = 6.
+        obj.addProperty("App::PropertyAngle", "Angle", "Slicing", "Angle of the filling").Angle = 45.
         obj.Proxy = self
 
     @staticmethod
@@ -87,7 +89,8 @@ class SliceObject:
 
         # noinspection PyUnresolvedReferences
         p: subprocess.CompletedProcess = self.slice_offset_zig_zag(
-            file=target_stl + ".stl", layer_height=float(fp.Height), seam_width=6, infill_angle=45
+            file=target_stl + ".stl", layer_height=float(fp.Height), seam_width=float(fp.Width),
+            infill_angle=float(fp.Angle)
         )
 
         # p: subprocess.CompletedProcess = self.slice_offset_line(
