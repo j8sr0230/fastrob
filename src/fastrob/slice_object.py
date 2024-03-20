@@ -36,6 +36,9 @@ class SliceObject:
         obj.addProperty("App::PropertyLength", "Height", "Slicing", "Layer height of the slice").Height = 2.
         obj.addProperty("App::PropertyLength", "Width", "Slicing", "Width of the seam").Width = 6.
         obj.addProperty("App::PropertyAngle", "Angle", "Slicing", "Angle of the filling").Angle = 45.
+        obj.addProperty("App::PropertyEnumeration", "Filling", "Slicing", "Style of the filling").Filling = [
+            "Offset", "Line", "ZigZag"
+        ]
         obj.Proxy = self
 
     @staticmethod
