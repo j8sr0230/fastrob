@@ -1,14 +1,13 @@
 from typing import cast
-# import os
+import os
 import subprocess
 
-# import numpy as np
-# from gcodeparser import GcodeParser, GcodeLine
+import numpy as np
+from gcodeparser import GcodeParser, GcodeLine
 
 import FreeCAD as App
 import Part
-
-# import Points
+import Points
 
 # FILLING patterns
 RECT: str = "rectilinear"
@@ -34,9 +33,7 @@ DEBUG: bool = True
 
 class SliceObject:
     def __init__(self, obj: Part.Feature) -> None:
-        obj.addProperty("App::PropertyLength", "Length", "Dimensions", "Length of the box").Length = 10.
-        obj.addProperty("App::PropertyLength", "Width", "Dimensions", "Width of the box").Width = 10.
-        obj.addProperty("App::PropertyLength", "Height", "Dimensions", "Height of the box").Height = 10.
+        obj.addProperty("App::PropertyLength", "Height", "Slicing", "Layer height of the slice").Height = 2.
         obj.Proxy = self
 
     @staticmethod
@@ -84,14 +81,73 @@ class SliceObject:
         return self.slice_stl(file=file, layer_height=layer_height, seam_width=seam_width, overlap=50, perimeters=1,
                               fill_pattern=RECT, fill_density=100, infill_angle=infill_angle, infill_anchor_max=0)
 
-    # noinspection PyPep8Naming, PyMethodMayBeStatic, PyUnresolvedReferences
     def execute(self, fp: Part.Feature) -> None:
-        fp.Shape = Part.makeBox(fp.Length, fp.Width, fp.Height)
+        dir_path: str = os.path.dirname(os.path.realpath(__file__))
+        target_stl: str = str(os.path.join(dir_path, "resources", "cuboid"))
+
+        # noinspection PyUnresolvedReferences
+        p: subprocess.CompletedProcess = self.slice_offset_zig_zag(
+            file=target_stl + ".stl", layer_height=float(fp.Height), seam_width=6, infill_angle=45
+        )
+
+        # p: subprocess.CompletedProcess = self.slice_offset_line(
+        #     file=target_stl + ".stl", layer_height=2, seam_width=6, infill_angle=0
+        # )
+
+        print(p.stdout)
+        print(p.stderr)
+
+        if not p.stderr:
+            with open(target_stl + ".gcode", "r") as f:
+                gcode_str: str = f.read()
+
+                gcode: list[GcodeLine] = GcodeParser(gcode=gcode_str, include_comments=False).lines
+
+                fc_paths: list[Part.Wire] = []
+                # paths: list[np.ndarray] = []
+                path: list[tuple[float]] = []
+                pos: list[float] = [0., 0., 0.]
+
+                for idx, line in enumerate(gcode):
+                    is_g_cmd: bool = line.command[0] == "G"
+                    current_has_extrusion: bool = "E" in line.params.keys() and line.params["E"] > 0
+
+                    next_has_extrusion: bool = False
+                    if idx < len(gcode) - 1:
+                        next_line: GcodeLine = gcode[idx + 1]
+                        next_has_extrusion: bool = "E" in next_line.params.keys() and next_line.params["E"] > 0
+
+                    if is_g_cmd:
+                        if "X" in line.params.keys():
+                            pos[0] = line.params["X"]
+                        if "Y" in line.params.keys():
+                            pos[1] = line.params["Y"]
+                        if "Z" in line.params.keys():
+                            pos[2] = line.params["Z"]
+
+                        if current_has_extrusion or (not current_has_extrusion and next_has_extrusion):
+                            path.append(tuple(pos))
+
+                        if not current_has_extrusion:
+                            if len(path) > 1:
+                                rounded_path: np.ndarray = np.round(path, 1)
+                                # paths.append(rounded_path)
+
+                                pts: Points.Points = Points.Points()
+                                pts.addPoints(list(map(tuple, rounded_path)))
+                                fc_paths.append(Part.makePolygon(pts.Points))
+
+                                path: list[tuple[float]] = []
+
+                fp.Shape = Part.Compound(fc_paths)
+        else:
+            fp.Shape = Part.Shape()
 
     # noinspection PyPep8Naming, PyMethodMayBeStatic, PyUnusedLocal, PyUnresolvedReferences
     def onChanged(self, fp: Part.Feature, prop: str) -> None:
-        if prop == "Length" or prop == "Width" or prop == "Height":
-            fp.Shape = Part.makeBox(fp.Length, fp.Width, fp.Height)
+        pass
+        # if prop == "Length" or prop == "Width" or prop == "Height":
+        #     fp.Shape = Part.makeBox(fp.Length, fp.Width, fp.Height)
 
 
 slice_doc_obj: Part.Feature = cast(Part.Feature, App.ActiveDocument.addObject("Part::FeaturePython", "Slice"))
