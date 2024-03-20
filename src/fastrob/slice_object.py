@@ -1,5 +1,7 @@
-from typing import cast
+from typing import cast, Optional
+
 import os
+import sys
 import subprocess
 
 import numpy as np
@@ -10,6 +12,10 @@ import FreeCAD as App
 import Part
 import Points
 import Mesh
+
+if os.getcwd() not in sys.path:
+    sys.path.append(os.getcwd())
+from slice_inspector import SliceInspector
 
 # FILLING patterns
 RECT: str = "rectilinear"
@@ -41,11 +47,16 @@ class SliceObject:
         obj.addProperty("App::PropertyEnumeration", "Filling", "Slicing", "Style of the filling").Filling = [
             "Offset", "Line", "ZigZag"
         ]
+        obj.addProperty("App::PropertyString", "PropTest")
+        obj.setPropertyStatus("PropTest", "UserEdit")
         obj.Proxy = self
 
         # noinspection PyUnresolvedReferences
         self._stl_path: str = os.path.join(App.getUserAppDataDir(), "fastrob", mesh.Name.lower())
         Mesh.export([mesh], self._stl_path + ".stl")
+
+        self._paths: list[Part.Wire] = []
+        self._slice_inspector: Optional[SliceInspector] = None
 
     def slice_stl(
             self, layer_height: float = 2, seam_width: float = 6, overlap: int = 50, perimeters: int = 1,
@@ -112,7 +123,6 @@ class SliceObject:
 
                 gcode: list[GcodeLine] = GcodeParser(gcode=gcode_str, include_comments=False).lines
 
-                paths: list[Part.Wire] = []
                 path: list[tuple[float]] = []
                 pos: list[float] = [0., 0., 0.]
 
@@ -142,11 +152,11 @@ class SliceObject:
 
                                 pts: Points.Points = Points.Points()
                                 pts.addPoints(list(map(tuple, rounded_path)))
-                                paths.append(Part.makePolygon(pts.Points))
+                                self._paths.append(Part.makePolygon(pts.Points))
 
                                 path: list[tuple[float]] = []
 
-                fp.Shape = Part.Compound(paths)
+                fp.Shape = Part.Compound(self._paths)
         else:
             fp.Shape = Part.Shape()
 
@@ -155,6 +165,18 @@ class SliceObject:
         pass
         # if prop == "Length" or prop == "Width" or prop == "Height":
         #     fp.Shape = Part.makeBox(fp.Length, fp.Width, fp.Height)
+
+    # noinspection PyPep8Naming
+    def editProperty(self, prop) -> None:
+        if prop == "PropTest":
+            self._slice_inspector = SliceInspector(self._paths)
+            self._slice_inspector.show()
+
+            # text, ok = QtWidgets.QInputDialog.getText(Gui.getMainWindow(), "Object", prop)
+            # if ok:
+            #     App.setActiveTransaction("Edit %s.%s" % (self.Object.Label, prop))
+            #     self.Object.PropTest = text
+            #     App.closeActiveTransaction()
 
 
 if __name__ == "__main__":
