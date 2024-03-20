@@ -5,9 +5,11 @@ import subprocess
 import numpy as np
 from gcodeparser import GcodeParser, GcodeLine
 
+import FreeCADGui as Gui
 import FreeCAD as App
 import Part
 import Points
+import Mesh
 
 # FILLING patterns
 RECT: str = "rectilinear"
@@ -32,7 +34,7 @@ DEBUG: bool = True
 
 
 class SliceObject:
-    def __init__(self, obj: Part.Feature) -> None:
+    def __init__(self, obj: Part.Feature, mesh: Mesh.Mesh) -> None:
         obj.addProperty("App::PropertyLength", "Height", "Slicing", "Layer height of the slice").Height = 2.
         obj.addProperty("App::PropertyLength", "Width", "Slicing", "Width of the seam").Width = 6.
         obj.addProperty("App::PropertyAngle", "Angle", "Slicing", "Angle of the filling").Angle = 45.
@@ -41,10 +43,15 @@ class SliceObject:
         ]
         obj.Proxy = self
 
-    @staticmethod
-    def slice_stl(file: str = "", layer_height: float = 2, seam_width: float = 6, overlap: int = 50,
-                  perimeters: int = 1, fill_pattern: str = RECT, fill_density: int = 100, infill_angle: float = 45,
-                  infill_anchor_max: int = 100) -> subprocess.CompletedProcess:
+        # noinspection PyUnresolvedReferences
+        self._stl_path: str = os.path.join(App.getUserAppDataDir(), "fastrob", mesh.Name.lower())
+        Mesh.export([mesh], self._stl_path + ".stl")
+
+    def slice_stl(
+            self, layer_height: float = 2, seam_width: float = 6, overlap: int = 50, perimeters: int = 1,
+            fill_pattern: str = RECT, fill_density: int = 100, infill_angle: float = 45, infill_anchor_max: int = 100
+    ) -> subprocess.CompletedProcess:
+
         cmd: str = (
                 "prusa-slicer-console.exe "  # "superslicer_console.exe "  
 
@@ -71,29 +78,25 @@ class SliceObject:
                 "--filament-retract-length 0 " +
 
                 # [ file.stl ... ]
-                file
+                self._stl_path + ".stl"
         )
 
         return subprocess.run(args=cmd, shell=True, capture_output=True, text=True)
 
-    def slice_offset_zig_zag(self, file: str = "", layer_height: float = 2, seam_width: float = 6,
+    def slice_offset_zig_zag(self, layer_height: float = 2, seam_width: float = 6,
                              infill_angle: float = 45) -> subprocess.CompletedProcess:
-        return self.slice_stl(file=file, layer_height=layer_height, seam_width=seam_width, overlap=50, perimeters=1,
+        return self.slice_stl(layer_height=layer_height, seam_width=seam_width, overlap=50, perimeters=1,
                               fill_pattern=RECT, fill_density=100, infill_angle=infill_angle, infill_anchor_max=100)
 
-    def slice_offset_line(self, file: str = "", layer_height: float = 2, seam_width: float = 6,
+    def slice_offset_line(self, layer_height: float = 2, seam_width: float = 6,
                           infill_angle: float = 45) -> subprocess.CompletedProcess:
-        return self.slice_stl(file=file, layer_height=layer_height, seam_width=seam_width, overlap=50, perimeters=1,
+        return self.slice_stl(layer_height=layer_height, seam_width=seam_width, overlap=50, perimeters=1,
                               fill_pattern=RECT, fill_density=100, infill_angle=infill_angle, infill_anchor_max=0)
 
     def execute(self, fp: Part.Feature) -> None:
-        dir_path: str = os.path.dirname(os.path.realpath(__file__))
-        target_stl: str = str(os.path.join(dir_path, "resources", "cuboid"))
-
         # noinspection PyUnresolvedReferences
         p: subprocess.CompletedProcess = self.slice_offset_zig_zag(
-            file=target_stl + ".stl", layer_height=float(fp.Height), seam_width=float(fp.Width),
-            infill_angle=float(fp.Angle)
+            layer_height=float(fp.Height), seam_width=float(fp.Width), infill_angle=float(fp.Angle)
         )
 
         # p: subprocess.CompletedProcess = self.slice_offset_line(
@@ -104,13 +107,12 @@ class SliceObject:
         print(p.stderr)
 
         if not p.stderr:
-            with open(target_stl + ".gcode", "r") as f:
+            with open(self._stl_path + ".gcode", "r") as f:
                 gcode_str: str = f.read()
 
                 gcode: list[GcodeLine] = GcodeParser(gcode=gcode_str, include_comments=False).lines
 
-                fc_paths: list[Part.Wire] = []
-                # paths: list[np.ndarray] = []
+                paths: list[Part.Wire] = []
                 path: list[tuple[float]] = []
                 pos: list[float] = [0., 0., 0.]
 
@@ -137,25 +139,41 @@ class SliceObject:
                         if not current_has_extrusion:
                             if len(path) > 1:
                                 rounded_path: np.ndarray = np.round(path, 1)
-                                # paths.append(rounded_path)
 
                                 pts: Points.Points = Points.Points()
                                 pts.addPoints(list(map(tuple, rounded_path)))
-                                fc_paths.append(Part.makePolygon(pts.Points))
+                                paths.append(Part.makePolygon(pts.Points))
 
                                 path: list[tuple[float]] = []
 
-                fp.Shape = Part.Compound(fc_paths)
+                fp.Shape = Part.Compound(paths)
         else:
             fp.Shape = Part.Shape()
 
-    # noinspection PyPep8Naming, PyMethodMayBeStatic, PyUnusedLocal, PyUnresolvedReferences
+    # noinspection PyPep8Naming, PyMethodMayBeStatic, PyUnusedLocal
     def onChanged(self, fp: Part.Feature, prop: str) -> None:
         pass
         # if prop == "Length" or prop == "Width" or prop == "Height":
         #     fp.Shape = Part.makeBox(fp.Length, fp.Width, fp.Height)
 
 
-slice_doc_obj: Part.Feature = cast(Part.Feature, App.ActiveDocument.addObject("Part::FeaturePython", "Slice"))
-SliceObject(slice_doc_obj)
-slice_doc_obj.ViewObject.Proxy = 0
+if __name__ == "__main__":
+    if App.ActiveDocument:
+        if len(Gui.Selection.getSelection()) > 0:
+            selection: App.DocumentObject = Gui.Selection.getSelection()[0]
+            print("Selected object:", selection.Label)
+
+            if hasattr(selection, "Mesh"):
+                selection: Mesh.Mesh = cast(Mesh.Mesh, selection)
+
+                slice_doc_obj: Part.Feature = cast(
+                    Part.Feature, App.ActiveDocument.addObject("Part::FeaturePython", "Slice")
+                )
+                SliceObject(obj=slice_doc_obj, mesh=selection)
+                slice_doc_obj.ViewObject.Proxy = 0
+            else:
+                print("No mesh selected.")
+        else:
+            print("Nothing selected.")
+    else:
+        print("No FreeCAD instance running.")
