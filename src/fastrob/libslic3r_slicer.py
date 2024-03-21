@@ -9,7 +9,6 @@ import FreeCAD as Gui
 import Part
 import Points
 
-
 # FILLING patterns
 RECT: str = "rectilinear"
 ALIGNED_RECT: str = "alignedrectilinear"
@@ -35,10 +34,9 @@ DEBUG: bool = True
 def slice_stl(file: str = "", layer_height: float = 2, seam_width: float = 6, overlap: int = 50, perimeters: int = 1,
               fill_pattern: str = RECT, fill_density: int = 100, infill_angle: float = 45,
               infill_anchor_max: int = 100) -> subprocess.CompletedProcess:
-
     cmd: str = (
             "prusa-slicer-console.exe "  # "superslicer_console.exe "  
-        
+
             # [ ACTIONS ]
             "--export-gcode " +
 
@@ -63,21 +61,19 @@ def slice_stl(file: str = "", layer_height: float = 2, seam_width: float = 6, ov
 
             # [ file.stl ... ]
             file
-        )
+    )
 
     return subprocess.run(args=cmd, shell=True, capture_output=True, text=True)
 
 
 def slice_offset_zig_zag(file: str = "", layer_height: float = 2, seam_width: float = 6, infill_angle: float = 45
                          ) -> subprocess.CompletedProcess:
-
     return slice_stl(file=file, layer_height=layer_height, seam_width=seam_width, overlap=50, perimeters=1,
                      fill_pattern=RECT, fill_density=100, infill_angle=infill_angle, infill_anchor_max=100)
 
 
 def slice_offset_line(file: str = "", layer_height: float = 2, seam_width: float = 6, infill_angle: float = 45
                       ) -> subprocess.CompletedProcess:
-
     return slice_stl(file=file, layer_height=layer_height, seam_width=seam_width, overlap=50, perimeters=1,
                      fill_pattern=RECT, fill_density=100, infill_angle=infill_angle, infill_anchor_max=0)
 
