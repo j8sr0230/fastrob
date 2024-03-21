@@ -8,7 +8,7 @@ from gcodeparser import GcodeParser, GcodeLine
 
 
 def slice_stl(file: str, layer_height: float, seam_width: float, perimeters: int, fill_pattern: str, fill_density: int,
-              infill_angle: float, infill_anchor_max: int) -> subprocess.CompletedProcess:
+              infill_angle: float, infill_anchor_max: float) -> subprocess.CompletedProcess:
     cmd: str = (
             "prusa-slicer-console.exe "
 
