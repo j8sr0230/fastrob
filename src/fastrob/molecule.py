@@ -1,7 +1,7 @@
 from typing import cast
 
 import FreeCADGui as Gui
-import FreeCAD
+import FreeCAD as App
 import Part
 
 from pivy import coin
@@ -9,8 +9,8 @@ from pivy import coin
 
 class Molecule:
     def __init__(self, obj: Part.Feature) -> None:
-        obj.addProperty("App::PropertyVector", "P1", "Line", "Start point").P1 = FreeCAD.Vector(1, 1, 0)
-        obj.addProperty("App::PropertyVector", "P2", "Line", "End point").P2 = FreeCAD.Vector(5, 5, 0)
+        obj.addProperty("App::PropertyVector", "P1", "Line", "Start point").P1 = App.Vector(1, 1, 0)
+        obj.addProperty("App::PropertyVector", "P2", "Line", "End point").P2 = App.Vector(5, 5, 0)
         obj.Proxy = self
 
     # noinspection PyPep8Naming, PyMethodMayBeStatic
@@ -25,7 +25,6 @@ class Molecule:
 
 class ViewProviderMolecule:
     def __init__(self, obj: Gui.ViewProviderDocumentObject) -> None:
-        print(obj, type(obj))
         obj.Proxy = self
         self.ViewObject = obj
 
@@ -52,8 +51,8 @@ class ViewProviderMolecule:
         self._sel_1 = sel_1
         self._sel_2 = sel_2
 
-        self.updateData(cast(Part.Feature, obj.Object), "P1")
-        self.updateData(cast(Part.Feature, obj.Object), "P2")
+        # self.updateData(cast(Part.Feature, obj.Object), "P1")
+        # self.updateData(cast(Part.Feature, obj.Object), "P2")
 
     # noinspection PyPep8Naming
     def getDetailPath(self, sub_name: str, path: coin.SoFullPath, append: bool) -> bool:
@@ -86,12 +85,12 @@ class ViewProviderMolecule:
 
     # noinspection PyPep8Naming
     def updateData(self, fp: Part.Feature, prop: str):
-        # fp is the handled feature, prop is the name of the property that has changed
         if prop == "P1":
-            p = fp.getPropertyByName("P1")
+            # print(hasattr(self, "_sel_1"))
+            p: App.Vector = fp.getPropertyByName("P1")
             self._trl_1.translation = (p.x, p.y, p.z)
         elif prop == "P2":
-            p = fp.getPropertyByName("P2")
+            p: App.Vector = fp.getPropertyByName("P2")
             self._trl_2.translation = (p.x, p.y, p.z)
 
     # noinspection PyPep8Naming, PyMethodMayBeStatic
@@ -104,11 +103,11 @@ class ViewProviderMolecule:
 
 
 if __name__ == "__main__":
-    if FreeCAD.ActiveDocument:
-        a: Part.Feature = cast(Part.Feature, FreeCAD.ActiveDocument.addObject("Part::FeaturePython", "Molecule"))
+    if App.ActiveDocument:
+        a: Part.Feature = cast(Part.Feature, App.ActiveDocument.addObject("Part::FeaturePython", "Molecule"))
         Molecule(a)
         ViewProviderMolecule(a.ViewObject)
-        FreeCAD.ActiveDocument.recompute()
+        App.ActiveDocument.recompute()
 
     else:
         print("No FreeCAD instance running.")
