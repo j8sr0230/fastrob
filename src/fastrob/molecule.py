@@ -51,8 +51,8 @@ class ViewProviderMolecule:
         self._sel_1 = sel_1
         self._sel_2 = sel_2
 
-        # self.updateData(cast(Part.Feature, obj.Object), "P1")
-        # self.updateData(cast(Part.Feature, obj.Object), "P2")
+        self.updateData(cast(Part.Feature, obj.Object), "P1")
+        self.updateData(cast(Part.Feature, obj.Object), "P2")
 
     # noinspection PyPep8Naming
     def getDetailPath(self, sub_name: str, path: coin.SoFullPath, append: bool) -> bool:
@@ -86,12 +86,13 @@ class ViewProviderMolecule:
     # noinspection PyPep8Naming
     def updateData(self, fp: Part.Feature, prop: str):
         if prop == "P1":
-            # print(hasattr(self, "_sel_1"))
-            p: App.Vector = fp.getPropertyByName("P1")
-            self._trl_1.translation = (p.x, p.y, p.z)
+            if hasattr(self, "_sel_1"):
+                p: App.Vector = fp.getPropertyByName("P1")
+                self._trl_1.translation = (p.x, p.y, p.z)
         elif prop == "P2":
-            p: App.Vector = fp.getPropertyByName("P2")
-            self._trl_2.translation = (p.x, p.y, p.z)
+            if hasattr(self, "_sel_2"):
+                p: App.Vector = fp.getPropertyByName("P2")
+                self._trl_2.translation = (p.x, p.y, p.z)
 
     # noinspection PyPep8Naming, PyMethodMayBeStatic
     def dumps(self):
