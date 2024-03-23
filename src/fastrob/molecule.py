@@ -24,9 +24,6 @@ class Molecule:
 
 class ViewProviderMolecule:
     def __init__(self, view_obj: Any) -> None:
-        view_obj.Proxy = self
-        self.view_obj = view_obj
-
         self._sep_1: coin.SoSeparator = coin.SoSeparator()
         self._sep_1.ref()
         self._sel_1: coin.SoSelection = coin.SoType.fromName("SoFCSelection").createInstance()
@@ -45,8 +42,8 @@ class ViewProviderMolecule:
         self._sep_2.addChild(self._sel_2)
         view_obj.RootNode.addChild(self._sep_2)
 
-        self.updateData(cast(Part.Feature, view_obj.Object), "P1")
-        self.updateData(cast(Part.Feature, view_obj.Object), "P2")
+        view_obj.Proxy = self
+        self.view_obj = view_obj
 
     # noinspection PyPep8Naming
     def getDetailPath(self, sub_name: str, path: coin.SoFullPath, append: bool) -> bool:
@@ -79,13 +76,11 @@ class ViewProviderMolecule:
     # noinspection PyPep8Naming
     def updateData(self, feature_obj: Part.Feature, prop: str) -> None:
         if prop == "P1":
-            if hasattr(self, "_sel_1"):
-                p: App.Vector = feature_obj.getPropertyByName("P1")
-                self._trl_1.translation = (p.x, p.y, p.z)
+            p: App.Vector = feature_obj.getPropertyByName("P1")
+            self._trl_1.translation = (p.x, p.y, p.z)
         elif prop == "P2":
-            if hasattr(self, "_sel_2"):
-                p: App.Vector = feature_obj.getPropertyByName("P2")
-                self._trl_2.translation = (p.x, p.y, p.z)
+            p: App.Vector = feature_obj.getPropertyByName("P2")
+            self._trl_2.translation = (p.x, p.y, p.z)
 
     # noinspection PyPep8Naming, PyMethodMayBeStatic
     def dumps(self):
