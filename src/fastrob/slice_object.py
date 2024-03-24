@@ -28,8 +28,11 @@ class SliceObject:
         obj.addProperty("App::PropertyPercent", "Density", "Slicing", "Density of the filling").Density = 100
         obj.addProperty("App::PropertyAngle", "Angle", "Slicing", "Angle of the filling").Angle = 45.
         obj.addProperty("App::PropertyLength", "Anchor", "Slicing", "Maximal anchor of the filling").Anchor = 10.
-        # obj.addProperty("App::PropertyString", "PropTest")
-        # obj.setPropertyStatus("PropTest", "UserEdit")
+
+        obj.addProperty("App::PropertyInteger", "Layer", "Inspection", "Layer to be inspected").Layer = 1
+        obj.addProperty("App::PropertyInteger", "Position", "Inspection", "Position to be inspected").Position = 0
+        # obj.addProperty("App::PropertyString", "Test")
+        # obj.setPropertyStatus("Test", "UserEdit")
         obj.Proxy = self
 
         # noinspection PyUnresolvedReferences
@@ -52,7 +55,11 @@ class SliceObject:
         print(p.stderr)
 
         if not p.stderr:
-            self._paths: list[Part.Wire] = parse_g_code(file=self._stl_path + ".gcode", as_wire=True)
+            self._paths: list[Part.Wire] = parse_g_code(file=self._stl_path + ".gcode", as_wires=True)
+
+
+
+
             fp.Shape = Part.Compound(self._paths)
         else:
             fp.Shape = Part.Shape()

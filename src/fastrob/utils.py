@@ -41,7 +41,7 @@ def slice_stl(file: str, layer_height: float, seam_width: float, perimeters: int
     return subprocess.run(args=cmd, shell=True, capture_output=True, text=True)
 
 
-def parse_g_code(file: str, as_wire: bool) -> list[np.ndarray | Part.Wire]:
+def parse_g_code(file: str, as_wires: bool) -> list[np.ndarray | Part.Wire]:
     paths: list[np.ndarray | Part.Wire] = []
 
     with open(file, "r") as f:
@@ -74,7 +74,7 @@ def parse_g_code(file: str, as_wire: bool) -> list[np.ndarray | Part.Wire]:
                     if len(path) > 1:
                         rounded_path: np.ndarray = np.round(path, 1)
 
-                        if as_wire is True:
+                        if as_wires is True:
                             pts: Points.Points = Points.Points()
                             pts.addPoints(list(map(tuple, rounded_path)))
                             paths.append(Part.makePolygon(pts.Points))
