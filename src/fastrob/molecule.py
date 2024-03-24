@@ -24,6 +24,9 @@ class Molecule:
 
 class ViewProviderMolecule:
     def __init__(self, view_obj: Any) -> None:
+        self._switch: coin.SoSwitch = coin.SoSwitch()
+        self._switch.whichChild = coin.SO_SWITCH_ALL
+
         self._sep_1: coin.SoSeparator = coin.SoSeparator()
         self._sep_1.ref()
         self._sel_1: coin.SoSelection = coin.SoType.fromName("SoFCSelection").createInstance()
@@ -31,7 +34,7 @@ class ViewProviderMolecule:
         self._sel_1.addChild(self._trl_1)
         self._sel_1.addChild(coin.SoSphere())
         self._sep_1.addChild(self._sel_1)
-        view_obj.RootNode.addChild(self._sep_1)
+        self._switch.addChild(self._sep_1)
 
         self._sep_2: coin.SoSeparator = coin.SoSeparator()
         self._sep_2.ref()
@@ -40,7 +43,9 @@ class ViewProviderMolecule:
         self._sel_2.addChild(self._trl_2)
         self._sel_2.addChild(coin.SoSphere())
         self._sep_2.addChild(self._sel_2)
-        view_obj.RootNode.addChild(self._sep_2)
+        self._switch.addChild(self._sep_2)
+
+        view_obj.RootNode.addChild(self._switch)
 
         view_obj.Proxy = self
         self.view_obj = view_obj
@@ -81,6 +86,14 @@ class ViewProviderMolecule:
         elif prop == "P2":
             p: App.Vector = feature_obj.getPropertyByName("P2")
             self._trl_2.translation = (p.x, p.y, p.z)
+
+    # noinspection PyPep8Naming, PyMethodMayBeStatic
+    def onChanged(self, view_obj: Any, prop: str):
+        if prop == "Visibility":
+            if bool(view_obj.Object.getPropertyByName("Visibility")) is False:
+                self._switch.whichChild = coin.SO_SWITCH_ALL
+            else:
+                self._switch.whichChild = coin.SO_SWITCH_NONE
 
     # noinspection PyPep8Naming, PyMethodMayBeStatic
     def dumps(self):
