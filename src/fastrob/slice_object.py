@@ -8,11 +8,12 @@ import FreeCADGui as Gui
 import FreeCAD as App
 import Part
 import Mesh
+import numpy as np
 
 if os.getcwd() not in sys.path:
     sys.path.append(os.getcwd())
 # from slice_inspector import SliceInspector
-from utils import slice_stl, parse_g_code
+from utils import slice_stl, parse_g_code, parse_g_code_with_layers
 
 
 class SliceObject:
@@ -55,12 +56,11 @@ class SliceObject:
         print(p.stderr)
 
         if not p.stderr:
-            self._paths: list[Part.Wire] = parse_g_code(file=self._stl_path + ".gcode", as_wires=True)
+            #self._paths: list[Part.Wire] = parse_g_code(file=self._stl_path + ".gcode", as_wires=True)
 
+            self._layer_paths = parse_g_code_with_layers(file=self._stl_path + ".gcode")
 
-
-
-            fp.Shape = Part.Compound(self._paths)
+            #fp.Shape = Part.Compound(self._paths)
         else:
             fp.Shape = Part.Shape()
 
