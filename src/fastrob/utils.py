@@ -114,6 +114,7 @@ def parse_g_code_with_layers(file: str) -> list[list[np.ndarray]]:
                 if "Y" in line.params.keys():
                     pos[1] = line.params["Y"]
                 if "Z" in line.params.keys():
+                    print(line.params["Z"], pos[2])
                     if line.params["Z"] != pos[2]:
                         layer_change: bool = True
                     else:
