@@ -39,7 +39,7 @@ class SliceObject:
         self._stl_path: str = os.path.join(App.getUserAppDataDir(), "fastrob", mesh.Name.lower())
         Mesh.export([mesh], self._stl_path + ".stl")
 
-        self._paths: list[Part.Wire] = []
+        self._paths: list[list[list[tuple[float]]]] = []
         # self._slice_inspector: Optional[SliceInspector] = None
 
     def execute(self, fp: Part.Feature) -> None:
@@ -55,10 +55,8 @@ class SliceObject:
         print(p.stderr)
 
         if not p.stderr:
-            # self._paths: list[Part.Wire] = parse_g_code(file=self._stl_path + ".gcode", as_wires=True)
-
-            layer_paths = parse_g_code_layers(file=self._stl_path + ".gcode")
-            print(layer_paths)
+            self._paths: list[list[list[tuple[float]]]] = parse_g_code_layers(file=self._stl_path + ".gcode")
+            print(self._paths)
 
             # fp.Shape = Part.Compound(self._paths)
         else:
