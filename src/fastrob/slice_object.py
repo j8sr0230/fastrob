@@ -9,17 +9,18 @@ import FreeCAD as App
 import Part
 import Mesh
 import numpy as np
+import awkward as ak
 
 from gcodeparser import GcodeParser, GcodeLine
 
 if os.getcwd() not in sys.path:
     sys.path.append(os.getcwd())
 # from slice_inspector import SliceInspector
-from utils import slice_stl, parse_g_code  # , parse_g_code_with_layers
+from utils import slice_stl
 
 
-def parse_g_code_with_layers(file: str) -> list[list[np.ndarray]]:
-    paths: list[list[np.ndarray]] = []
+def parse_g_code(file: str) -> ak.Array:
+    paths: list[list[tuple[float]]] = []
 
     with open(file, "r") as f:
         gcode: list[GcodeLine] = GcodeParser(gcode=f.read(), include_comments=False).lines
@@ -50,14 +51,67 @@ def parse_g_code_with_layers(file: str) -> list[list[np.ndarray]]:
 
                 if not current_has_extrusion:
                     if len(path) > 1:
-                        rounded_path: np.ndarray = np.round(path, 1)
-                        paths.append(rounded_path)
+                        paths.append(path.copy())
                         path.clear()
 
+    if len(paths) > 1:
         heights: np.ndarray = np.array([p[0][-1] for p in paths])
-        print(np.split(heights, np.where(np.diff(heights, axis=0) > 0)[0] + 1))
+        extended_heights: np.ndarray = np.hstack([0, heights, heights[-1] + 1])
+        paths_per_layer = np.diff(np.where(np.diff(extended_heights) > 0)[0] + 1)
+        return ak.unflatten(paths, counts=paths_per_layer, axis=0)
 
-    return paths
+    else:
+        return ak.Array(paths)
+
+
+def parse_g_code_l(file: str) -> list[np.ndarray]:
+    paths: list[list[list[tuple[float]]]] = []
+
+    with open(file, "r") as f:
+        gcode: list[GcodeLine] = GcodeParser(gcode=f.read(), include_comments=False).lines
+        App.Console.PrintLog(gcode)
+
+        layer: list[list[tuple[float]]] = []
+        path: list[tuple[float]] = []
+        pos: list[float] = [0., 0., 0.]
+
+        for idx, line in enumerate(gcode):
+            if line.command[0] == "G":
+                layer_change: bool = False
+
+                if "X" in line.params.keys():
+                    pos[0] = line.params["X"]
+                if "Y" in line.params.keys():
+                    pos[1] = line.params["Y"]
+                if "Z" in line.params.keys():
+                    pos[2] = line.params["Z"]
+                    layer_change: bool = True
+
+                this_has_extrusion: bool = "E" in line.params.keys() and line.params["E"] > 0
+                next_has_extrusion: bool = False
+
+                if idx < len(gcode) - 1:
+                    next_line: GcodeLine = gcode[idx + 1]
+                    next_has_extrusion: bool = "E" in next_line.params.keys() and next_line.params["E"] > 0
+
+                if this_has_extrusion or (not this_has_extrusion and next_has_extrusion):
+                    path.append(tuple(pos))
+
+                if not (this_has_extrusion and next_has_extrusion):
+                    if not layer_change:
+                        if len(path) > 1:
+                            layer.append(path.copy())
+                            path.clear()
+                    else:
+                        if len(layer) > 1:
+                            paths.append(layer.copy())
+                            layer.clear()
+                            path.clear()
+
+        if len(layer) > 0:
+            paths.append(layer)
+
+        return paths
 
 
 class SliceObject:
@@ -100,12 +154,12 @@ class SliceObject:
         print(p.stderr)
 
         if not p.stderr:
-            #self._paths: list[Part.Wire] = parse_g_code(file=self._stl_path + ".gcode", as_wires=True)
+            # self._paths: list[Part.Wire] = parse_g_code(file=self._stl_path + ".gcode", as_wires=True)
 
-            self._layer_paths = parse_g_code_with_layers(file=self._stl_path + ".gcode")
-            print(self._layer_paths)
+            layer_paths = parse_g_code_l(file=self._stl_path + ".gcode")
+            print(layer_paths)
 
-            #fp.Shape = Part.Compound(self._paths)
+            # fp.Shape = Part.Compound(self._paths)
         else:
             fp.Shape = Part.Shape()
 
