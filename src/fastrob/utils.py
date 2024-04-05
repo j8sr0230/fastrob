@@ -1,7 +1,6 @@
 import subprocess
 
 import numpy as np
-import FreeCAD as App
 import Part
 import Points
 
@@ -83,57 +82,4 @@ def parse_g_code(file: str, as_wires: bool) -> list[np.ndarray | Part.Wire]:
                             paths.append(rounded_path)
 
                         path.clear()
-    return paths
-
-
-def parse_g_code_with_layers(file: str) -> list[list[np.ndarray]]:
-    paths: list[list[np.ndarray]] = []
-    print("Start")
-
-    with open(file, "r") as f:
-        gcode: list[GcodeLine] = GcodeParser(gcode=f.read(), include_comments=False).lines
-        App.Console.PrintLog(gcode)
-
-        layer: list[np.ndarray] = []
-        path: list[tuple[float]] = []
-        pos: list[float] = [0., 0., 0.]
-        layer_change: bool = False
-
-        for idx, line in enumerate(gcode):
-            is_g_cmd: bool = line.command[0] == "G"
-            current_has_extrusion: bool = "E" in line.params.keys() and line.params["E"] > 0
-
-            next_has_extrusion: bool = False
-            if idx < len(gcode) - 1:
-                next_line: GcodeLine = gcode[idx + 1]
-                next_has_extrusion: bool = "E" in next_line.params.keys() and next_line.params["E"] > 0
-
-            if is_g_cmd:
-                if "X" in line.params.keys():
-                    pos[0] = line.params["X"]
-                if "Y" in line.params.keys():
-                    pos[1] = line.params["Y"]
-                if "Z" in line.params.keys():
-                    print(line.params["Z"], pos[2])
-                    if line.params["Z"] != pos[2]:
-                        layer_change: bool = True
-                    else:
-                        layer_change: bool = False
-                    pos[2] = line.params["Z"]
-
-                print(layer_change)
-
-                if current_has_extrusion or (not current_has_extrusion and next_has_extrusion):
-                    path.append(tuple(pos))
-
-                if not current_has_extrusion:
-                    if not layer_change:
-                        if len(path) > 1:
-                            rounded_path: np.ndarray = np.round(path, 1)
-                            layer.append(rounded_path)
-                            path.clear()
-                    else:
-                        if len(layer) > 1:
-                            paths.append(layer)
-                            layer.clear()
     return paths

@@ -10,10 +10,54 @@ import Part
 import Mesh
 import numpy as np
 
+from gcodeparser import GcodeParser, GcodeLine
+
 if os.getcwd() not in sys.path:
     sys.path.append(os.getcwd())
 # from slice_inspector import SliceInspector
-from utils import slice_stl, parse_g_code, parse_g_code_with_layers
+from utils import slice_stl, parse_g_code  # , parse_g_code_with_layers
+
+
+def parse_g_code_with_layers(file: str) -> list[list[np.ndarray]]:
+    paths: list[list[np.ndarray]] = []
+
+    with open(file, "r") as f:
+        gcode: list[GcodeLine] = GcodeParser(gcode=f.read(), include_comments=False).lines
+        App.Console.PrintLog(gcode)
+
+        path: list[tuple[float]] = []
+        pos: list[float] = [0., 0., 0.]
+
+        for idx, line in enumerate(gcode):
+            is_g_cmd: bool = line.command[0] == "G"
+            current_has_extrusion: bool = "E" in line.params.keys() and line.params["E"] > 0
+
+            next_has_extrusion: bool = False
+            if idx < len(gcode) - 1:
+                next_line: GcodeLine = gcode[idx + 1]
+                next_has_extrusion: bool = "E" in next_line.params.keys() and next_line.params["E"] > 0
+
+            if is_g_cmd:
+                if "X" in line.params.keys():
+                    pos[0] = line.params["X"]
+                if "Y" in line.params.keys():
+                    pos[1] = line.params["Y"]
+                if "Z" in line.params.keys():
+                    pos[2] = line.params["Z"]
+
+                if current_has_extrusion or (not current_has_extrusion and next_has_extrusion):
+                    path.append(tuple(pos))
+
+                if not current_has_extrusion:
+                    if len(path) > 1:
+                        rounded_path: np.ndarray = np.round(path, 1)
+                        paths.append(rounded_path)
+                        path.clear()
+
+        heights: np.ndarray = np.array([p[0][-1] for p in paths])
+        print(np.split(heights, np.where(np.diff(heights, axis=0) > 0)[0] + 1))
+
+    return paths
 
 
 class SliceObject:
@@ -59,6 +103,7 @@ class SliceObject:
             #self._paths: list[Part.Wire] = parse_g_code(file=self._stl_path + ".gcode", as_wires=True)
 
             self._layer_paths = parse_g_code_with_layers(file=self._stl_path + ".gcode")
+            print(self._layer_paths)
 
             #fp.Shape = Part.Compound(self._paths)
         else:
