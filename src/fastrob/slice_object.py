@@ -8,10 +8,6 @@ import FreeCADGui as Gui
 import FreeCAD as App
 import Part
 import Mesh
-import numpy as np
-import awkward as ak
-
-from gcodeparser import GcodeParser, GcodeLine
 
 if os.getcwd() not in sys.path:
     sys.path.append(os.getcwd())
