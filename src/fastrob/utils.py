@@ -83,3 +83,52 @@ def parse_g_code(file: str, as_wires: bool) -> list[np.ndarray | Part.Wire]:
 
                         path.clear()
     return paths
+
+
+def parse_g_code_layers(file: str) -> list[list[list[tuple[float]]]]:
+    paths: list[list[list[tuple[float]]]] = []
+
+    with open(file, "r") as f:
+        gcode: list[GcodeLine] = GcodeParser(gcode=f.read(), include_comments=False).lines
+
+        layer: list[list[tuple[float]]] = []
+        path: list[tuple[float]] = []
+        pos: list[float] = [0., 0., 0.]
+
+        for idx, line in enumerate(gcode):
+            if line.command[0] == "G":
+                layer_change: bool = False
+
+                if "X" in line.params.keys():
+                    pos[0] = line.params["X"]
+                if "Y" in line.params.keys():
+                    pos[1] = line.params["Y"]
+                if "Z" in line.params.keys():
+                    pos[2] = line.params["Z"]
+                    layer_change: bool = True
+
+                this_has_extrusion: bool = "E" in line.params.keys() and line.params["E"] > 0
+                next_has_extrusion: bool = False
+
+                if idx < len(gcode) - 1:
+                    next_line: GcodeLine = gcode[idx + 1]
+                    next_has_extrusion: bool = "E" in next_line.params.keys() and next_line.params["E"] > 0
+
+                if this_has_extrusion or (not this_has_extrusion and next_has_extrusion):
+                    path.append(tuple(pos))
+
+                if not this_has_extrusion:
+                    if not layer_change:
+                        if len(path) > 1:
+                            layer.append(path.copy())
+                            path.clear()
+                    else:
+                        if len(layer) > 1:
+                            paths.append(layer.copy())
+                            layer.clear()
+                            path.clear()
+
+        if len(layer) > 0:
+            paths.append(layer)
+
+    return paths

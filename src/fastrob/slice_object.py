@@ -16,102 +16,7 @@ from gcodeparser import GcodeParser, GcodeLine
 if os.getcwd() not in sys.path:
     sys.path.append(os.getcwd())
 # from slice_inspector import SliceInspector
-from utils import slice_stl
-
-
-def parse_g_code(file: str) -> ak.Array:
-    paths: list[list[tuple[float]]] = []
-
-    with open(file, "r") as f:
-        gcode: list[GcodeLine] = GcodeParser(gcode=f.read(), include_comments=False).lines
-        App.Console.PrintLog(gcode)
-
-        path: list[tuple[float]] = []
-        pos: list[float] = [0., 0., 0.]
-
-        for idx, line in enumerate(gcode):
-            is_g_cmd: bool = line.command[0] == "G"
-            current_has_extrusion: bool = "E" in line.params.keys() and line.params["E"] > 0
-
-            next_has_extrusion: bool = False
-            if idx < len(gcode) - 1:
-                next_line: GcodeLine = gcode[idx + 1]
-                next_has_extrusion: bool = "E" in next_line.params.keys() and next_line.params["E"] > 0
-
-            if is_g_cmd:
-                if "X" in line.params.keys():
-                    pos[0] = line.params["X"]
-                if "Y" in line.params.keys():
-                    pos[1] = line.params["Y"]
-                if "Z" in line.params.keys():
-                    pos[2] = line.params["Z"]
-
-                if current_has_extrusion or (not current_has_extrusion and next_has_extrusion):
-                    path.append(tuple(pos))
-
-                if not current_has_extrusion:
-                    if len(path) > 1:
-                        paths.append(path.copy())
-                        path.clear()
-
-    if len(paths) > 1:
-        heights: np.ndarray = np.array([p[0][-1] for p in paths])
-        extended_heights: np.ndarray = np.hstack([0, heights, heights[-1] + 1])
-        paths_per_layer = np.diff(np.where(np.diff(extended_heights) > 0)[0] + 1)
-        return ak.unflatten(paths, counts=paths_per_layer, axis=0)
-
-    else:
-        return ak.Array(paths)
-
-
-def parse_g_code_l(file: str) -> list[np.ndarray]:
-    paths: list[list[list[tuple[float]]]] = []
-
-    with open(file, "r") as f:
-        gcode: list[GcodeLine] = GcodeParser(gcode=f.read(), include_comments=False).lines
-        App.Console.PrintLog(gcode)
-
-        layer: list[list[tuple[float]]] = []
-        path: list[tuple[float]] = []
-        pos: list[float] = [0., 0., 0.]
-
-        for idx, line in enumerate(gcode):
-            if line.command[0] == "G":
-                layer_change: bool = False
-
-                if "X" in line.params.keys():
-                    pos[0] = line.params["X"]
-                if "Y" in line.params.keys():
-                    pos[1] = line.params["Y"]
-                if "Z" in line.params.keys():
-                    pos[2] = line.params["Z"]
-                    layer_change: bool = True
-
-                this_has_extrusion: bool = "E" in line.params.keys() and line.params["E"] > 0
-                next_has_extrusion: bool = False
-
-                if idx < len(gcode) - 1:
-                    next_line: GcodeLine = gcode[idx + 1]
-                    next_has_extrusion: bool = "E" in next_line.params.keys() and next_line.params["E"] > 0
-
-                if this_has_extrusion or (not this_has_extrusion and next_has_extrusion):
-                    path.append(tuple(pos))
-
-                if not (this_has_extrusion and next_has_extrusion):
-                    if not layer_change:
-                        if len(path) > 1:
-                            layer.append(path.copy())
-                            path.clear()
-                    else:
-                        if len(layer) > 1:
-                            paths.append(layer.copy())
-                            layer.clear()
-                            path.clear()
-
-        if len(layer) > 0:
-            paths.append(layer)
-
-        return paths
+from utils import slice_stl, parse_g_code_layers
 
 
 class SliceObject:
@@ -156,7 +61,7 @@ class SliceObject:
         if not p.stderr:
             # self._paths: list[Part.Wire] = parse_g_code(file=self._stl_path + ".gcode", as_wires=True)
 
-            layer_paths = parse_g_code_l(file=self._stl_path + ".gcode")
+            layer_paths = parse_g_code_layers(file=self._stl_path + ".gcode")
             print(layer_paths)
 
             # fp.Shape = Part.Compound(self._paths)
