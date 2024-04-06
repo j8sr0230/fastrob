@@ -118,17 +118,16 @@ def parse_g_code_layers(file: str) -> list[list[list[tuple[float]]]]:
                     path.append(tuple(pos))
 
                 if not this_has_extrusion:
-                    if not layer_change:
-                        if len(path) > 1:
-                            layer.append(path.copy())
-                            path.clear()
-                    else:
-                        if len(layer) > 1:
+                    if len(path) > 1:
+                        layer.append(path.copy())
+                        path.clear()
+
+                    if layer_change:
+                        if len(layer) > 0:
                             paths.append(layer.copy())
                             layer.clear()
-                            path.clear()
 
         if len(layer) > 0:
-            paths.append(layer)
+            paths.append(layer.copy())
 
     return paths
