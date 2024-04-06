@@ -1,8 +1,10 @@
-from typing import Any, cast
+from typing import Any, Optional, cast
 
 import os
 import sys
 import subprocess
+
+import awkward as ak
 
 from pivy import coin
 
@@ -31,7 +33,7 @@ class SliceObject:
         feat_obj.addProperty("App::PropertyAngle", "Angle", "Slicing", "Angle of the filling").Angle = 45.
         feat_obj.addProperty("App::PropertyLength", "Anchor", "Slicing", "Maximal anchor of the filling").Anchor = 10.
 
-        feat_obj.addProperty("App::PropertyInteger", "Layer", "Inspection", "Layer to be inspected").Layer = 1
+        feat_obj.addProperty("App::PropertyInteger", "Layer", "Inspection", "Layer to be inspected", 0).Layer = 1
         feat_obj.addProperty("App::PropertyInteger", "Position", "Inspection", "Position to be inspected").Position = 0
         # obj.addProperty("App::PropertyString", "Test")
         # obj.setPropertyStatus("Test", "UserEdit")
@@ -41,11 +43,11 @@ class SliceObject:
         self._stl_path: str = os.path.join(App.getUserAppDataDir(), "fastrob", mesh.Name.lower())
         Mesh.export([mesh], self._stl_path + ".stl")
 
-        self._paths: list[list[list[tuple[float]]]] = []
+        self._paths: Optional[ak.Array] = None
         # self._slice_inspector: Optional[SliceInspector] = None
 
     @property
-    def paths(self) -> list[list[list[tuple[float]]]]:
+    def paths(self) -> ak.Array:
         return self._paths
 
     def execute(self, feat_obj: Part.Feature) -> None:
@@ -61,8 +63,8 @@ class SliceObject:
         print(p.stderr)
 
         if not p.stderr:
-            self._paths: list[list[list[tuple[float]]]] = parse_g_code_layers(file=self._stl_path + ".gcode")
-            print(self._paths)
+            self._paths: ak.Array = ak.Array(parse_g_code_layers(file=self._stl_path + ".gcode"))
+            # print(self._paths)
 
             # fp.Shape = Part.Compound(self._paths)
         else:
@@ -91,20 +93,15 @@ class ViewProviderSliceObject:
     def __init__(self, view_obj: Any) -> None:
         self._switch: coin.SoSwitch = coin.SoSwitch()
         self._switch.whichChild = coin.SO_SWITCH_ALL
-
         self._sep: coin.SoSeparator = coin.SoSeparator()
         self._sep.ref()
-
         self._coords: coin.SoCoordinate3 = coin.SoCoordinate3()
         # self._coords.point.values = [(0, 0, 0), (50, 25, 0), (100, 0, 0), (100, 100, 40)]
         self._lines: coin.SoLineSet = coin.SoLineSet()
         # self._lines.numVertices.values = [2, 2]
-
         self._sep.addChild(self._coords)
         self._sep.addChild(self._lines)
-
         self._switch.addChild(self._sep)
-
         view_obj.RootNode.addChild(self._switch)
 
         view_obj.Proxy = self
@@ -114,19 +111,13 @@ class ViewProviderSliceObject:
     def updateData(self, feature_obj: Part.Feature, prop: str) -> None:
         if prop == "Layer":
             layer_idx: int = feature_obj.getPropertyByName("Layer")
-            print(layer_idx)
-
             if layer_idx > 1:
-                remaining_layers: list[list[list[tuple[float]]]] = cast(
-                    SliceObject, feature_obj.Proxy
-                ).paths[:layer_idx]
+                remaining_layers: ak.Array = cast(SliceObject, feature_obj.Proxy).paths[:layer_idx - 1]
+                self._coords.point.values = ak.flatten(ak.flatten(remaining_layers)).to_list()
+                self._lines.numVertices.values = ak.flatten(ak.num(remaining_layers, axis=-1), axis=None).to_list()
             else:
-                remaining_layers: list[list[list[tuple[float]]]] = []
-
-            print(remaining_layers)
-
-            self._coords.point.values = [(0, 0, 0), (50, 25, 0), (100, 0, 0), (100, 100, 40)]
-            self._lines.numVertices.values = [2, 2]
+                self._coords.point.values = []
+                self._lines.numVertices.values = []
 
         elif prop == "Position":
             pos_idx: int = feature_obj.getPropertyByName("Position")
