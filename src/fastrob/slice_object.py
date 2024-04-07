@@ -53,11 +53,10 @@ class SliceObject:
 
     # noinspection PyMethodMayBeStatic, PyUnusedLocal
     def execute(self, feat_obj: Part.Feature) -> None:
-        print("Exec fo")
+        pass
 
     # noinspection PyPep8Naming
     def onChanged(self, feat_obj: Part.Feature, prop: str) -> None:
-        print("Change fo")
         if prop == "Mesh":
             # noinspection PyUnresolvedReferences
             if feat_obj.Mesh is not None:
@@ -127,7 +126,6 @@ class ViewProviderSliceObject:
 
     # noinspection PyPep8Naming
     def updateData(self, feature_obj: Part.Feature, prop: str) -> None:
-        print("Update vo")
         if self._switch not in feature_obj.ViewObject.RootNode.getChildren():
             feature_obj.ViewObject.RootNode.addChild(self._switch)
 
@@ -147,7 +145,6 @@ class ViewProviderSliceObject:
 
     # noinspection PyPep8Naming, PyMethodMayBeStatic
     def onChanged(self, view_obj: Any, prop: str):
-        print("Change vo")
         if prop == "Visibility":
             if bool(view_obj.Object.Visibility) is False:
                 self._switch.whichChild = coin.SO_SWITCH_ALL
