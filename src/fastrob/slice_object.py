@@ -184,11 +184,11 @@ class ViewProviderSliceObject:
 
 
 if __name__ == "__main__":
-    if os.getcwd() not in sys.path:
-        sys.path.append(os.getcwd())
-
-    # noinspection PyUnresolvedReferences
-    from slice_object import SliceObject, ViewProviderSliceObject
+    # if os.getcwd() not in sys.path:
+    #     sys.path.append(os.getcwd())
+    #
+    # # noinspection PyUnresolvedReferences
+    # from slice_object import SliceObject, ViewProviderSliceObject
 
     if App.ActiveDocument:
         if len(Gui.Selection.getSelection()) > 0:
