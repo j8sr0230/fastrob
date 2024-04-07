@@ -33,8 +33,6 @@ class SliceObject:
         feat_obj.addProperty("App::PropertyAngle", "Angle", "Slicing", "Angle of the filling").Angle = 45.
         feat_obj.addProperty("App::PropertyLength", "Anchor", "Slicing", "Maximal anchor of the filling").Anchor = 10.
 
-        feat_obj.addProperty("App::PropertyInteger", "Layer", "Inspection", "Layer to be inspected", 0).Layer = 1
-        feat_obj.addProperty("App::PropertyInteger", "Position", "Inspection", "Position to be inspected").Position = 0
         # obj.addProperty("App::PropertyString", "Test")
         # obj.setPropertyStatus("Test", "UserEdit")
         feat_obj.Proxy = self
@@ -44,6 +42,8 @@ class SliceObject:
         Mesh.export([mesh], self._stl_path + ".stl")
 
         self._paths: Optional[ak.Array] = None
+        self.onChanged(feat_obj, "Height")
+
         # self._slice_inspector: Optional[SliceInspector] = None
 
     @property
@@ -51,30 +51,25 @@ class SliceObject:
         return self._paths
 
     def execute(self, feat_obj: Part.Feature) -> None:
-        # noinspection PyUnresolvedReferences
-        p: subprocess.CompletedProcess = slice_stl(
-            file=self._stl_path + ".stl",
-            layer_height=float(feat_obj.Height), seam_width=float(feat_obj.Width), perimeters=int(feat_obj.Perimeters),
-            fill_pattern=str(feat_obj.Pattern), fill_density=int(feat_obj.Density), infill_angle=float(feat_obj.Angle),
-            infill_anchor_max=float(feat_obj.Anchor)
-        )
-
-        print(p.stdout)
-        print(p.stderr)
-
-        if not p.stderr:
-            self._paths: ak.Array = ak.Array(parse_g_code_layers(file=self._stl_path + ".gcode"))
-            # print(self._paths)
-
-            # fp.Shape = Part.Compound(self._paths)
-        else:
-            feat_obj.Shape = Part.Shape()
-
-    # noinspection PyPep8Naming, PyMethodMayBeStatic, PyUnusedLocal
-    def onChanged(self, feat_obj: Part.Feature, prop: str) -> None:
         pass
-        # if prop == "Length" or prop == "Width" or prop == "Height":
-        #     fp.Shape = Part.makeBox(fp.Length, fp.Width, fp.Height)
+
+    # noinspection PyPep8Naming
+    def onChanged(self, feat_obj: Part.Feature, prop: str) -> None:
+        if prop in ("Height", "Width", "Perimeters", "Pattern", "Density", "Angle", "Anchor"):
+            # noinspection PyUnresolvedReferences
+            p: subprocess.CompletedProcess = slice_stl(
+                file=self._stl_path + ".stl",
+                layer_height=float(feat_obj.Height), seam_width=float(feat_obj.Width),
+                perimeters=int(feat_obj.Perimeters), fill_pattern=str(feat_obj.Pattern),
+                fill_density=int(feat_obj.Density), infill_angle=float(feat_obj.Angle),
+                infill_anchor_max=float(feat_obj.Anchor)
+            )
+
+            print(p.stdout)
+            print(p.stderr)
+
+            if not p.stderr:
+                self._paths: ak.Array = ak.Array(parse_g_code_layers(file=self._stl_path + ".gcode"))
 
     # noinspection PyPep8Naming
     # def editProperty(self, prop) -> None:
@@ -88,31 +83,62 @@ class SliceObject:
     #     self.Object.PropTest = text
     #     App.closeActiveTransaction()
 
+    def dumps(self) -> tuple[Any]:
+        return self._paths.to_list(),
+
+    def loads(self, state: tuple[Any]) -> None:
+        self._paths: ak.Array = ak.Array(state[0])
+        return None
+
 
 class ViewProviderSliceObject:
     def __init__(self, view_obj: Any) -> None:
+        view_obj.addProperty("App::PropertyInteger", "Layer", "Inspection", "Layer to be inspected", 0).Layer = 1
+        view_obj.addProperty("App::PropertyInteger", "Position", "Inspection", "Position to be inspected").Position = 0
+
         self._switch: coin.SoSwitch = coin.SoSwitch()
         self._switch.whichChild = coin.SO_SWITCH_ALL
         self._sep: coin.SoSeparator = coin.SoSeparator()
         self._sep.ref()
         self._coords: coin.SoCoordinate3 = coin.SoCoordinate3()
-        # self._coords.point.values = [(0, 0, 0), (50, 25, 0), (100, 0, 0), (100, 100, 40)]
         self._lines: coin.SoLineSet = coin.SoLineSet()
-        # self._lines.numVertices.values = [2, 2]
         self._sep.addChild(self._coords)
         self._sep.addChild(self._lines)
         self._switch.addChild(self._sep)
         view_obj.RootNode.addChild(self._switch)
 
+        self._view_obj: Gui.ViewProvider = view_obj
         view_obj.Proxy = self
-        self._view_obj = view_obj
 
     # noinspection PyPep8Naming
     def updateData(self, feature_obj: Part.Feature, prop: str) -> None:
-        if prop == "Layer":
-            layer_idx: int = feature_obj.getPropertyByName("Layer")
-            if layer_idx > 1:
-                remaining_layers: ak.Array = cast(SliceObject, feature_obj.Proxy).paths[:layer_idx - 1]
+        if prop in ("Height", "Width", "Perimeters", "Pattern", "Density", "Angle", "Anchor"):
+            paths: Optional[ak.Array] = cast(SliceObject, feature_obj.Proxy).paths
+            if paths is not None and len(paths) > 1:
+                self._view_obj.Layer = len(paths)
+
+                remaining_layers: ak.Array = paths[:len(paths) - 1]
+                self._coords.point.values = ak.flatten(ak.flatten(remaining_layers)).to_list()
+                self._lines.numVertices.values = ak.flatten(ak.num(remaining_layers, axis=-1), axis=None).to_list()
+
+            else:
+                self._view_obj.Layer = 0
+                self._coords.point.values = []
+                self._lines.numVertices.values = []
+
+    # noinspection PyPep8Naming, PyMethodMayBeStatic
+    def onChanged(self, view_obj: Any, prop: str):
+        if prop == "Visibility":
+            if bool(view_obj.Object.Visibility) is False:
+                self._switch.whichChild = coin.SO_SWITCH_ALL
+            else:
+                self._switch.whichChild = coin.SO_SWITCH_NONE
+
+        elif prop == "Layer":
+            layer_idx: int = view_obj.getPropertyByName("Layer")
+            paths: Optional[ak.Array] = cast(SliceObject, view_obj.Object.Proxy).paths
+            if layer_idx > 1 and paths is not None:
+                remaining_layers: ak.Array = paths[:layer_idx - 1]
                 self._coords.point.values = ak.flatten(ak.flatten(remaining_layers)).to_list()
                 self._lines.numVertices.values = ak.flatten(ak.num(remaining_layers, axis=-1), axis=None).to_list()
             else:
@@ -120,16 +146,16 @@ class ViewProviderSliceObject:
                 self._lines.numVertices.values = []
 
         elif prop == "Position":
-            pos_idx: int = feature_obj.getPropertyByName("Position")
+            pos_idx: int = view_obj.getPropertyByName("Position")
             print(pos_idx)
 
-    # noinspection PyPep8Naming, PyMethodMayBeStatic
-    def onChanged(self, view_obj: Any, prop: str):
-        if prop == "Visibility":
-            if bool(view_obj.Object.getPropertyByName("Visibility")) is False:
-                self._switch.whichChild = coin.SO_SWITCH_ALL
-            else:
-                self._switch.whichChild = coin.SO_SWITCH_NONE
+    # noinspection PyMethodMayBeStatic
+    def dumps(self):
+        return None
+
+    # noinspection PyUnusedLocal, PyMethodMayBeStatic
+    def loads(self, state):
+        return None
 
 
 if __name__ == "__main__":
