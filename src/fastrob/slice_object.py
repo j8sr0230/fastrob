@@ -86,8 +86,7 @@ class SliceObject:
     def dumps(self) -> tuple[str, list]:
         return self._stl_path, self._paths.to_list()
 
-    def loads(self, state: tuple[Any]) -> None:
-        print(state[0])
+    def loads(self, state: tuple[str, list]) -> None:
         self._stl_path: str = state[0]
         self._paths: ak.Array = ak.Array(state[1])
         return None
@@ -107,12 +106,14 @@ class ViewProviderSliceObject:
         self._sep.addChild(self._coords)
         self._sep.addChild(self._lines)
         self._switch.addChild(self._sep)
-        view_obj.RootNode.addChild(self._switch)
 
         view_obj.Proxy = self
 
     # noinspection PyPep8Naming
     def updateData(self, feature_obj: Part.Feature, prop: str) -> None:
+        if self._switch not in feature_obj.ViewObject.RootNode.getChildren():
+            feature_obj.ViewObject.RootNode.addChild(self._switch)
+
         if prop in ("Height", "Width", "Perimeters", "Pattern", "Density", "Angle", "Anchor"):
             paths: Optional[ak.Array] = cast(SliceObject, feature_obj.Proxy).paths
             if paths is not None and len(paths) > 1:
@@ -164,7 +165,6 @@ class ViewProviderSliceObject:
         self._sep.addChild(self._coords)
         self._sep.addChild(self._lines)
         self._switch.addChild(self._sep)
-
         return None
 
 
