@@ -83,11 +83,13 @@ class SliceObject:
     #     self.Object.PropTest = text
     #     App.closeActiveTransaction()
 
-    def dumps(self) -> tuple[Any]:
-        return self._paths.to_list(),
+    def dumps(self) -> tuple[str, list]:
+        return self._stl_path, self._paths.to_list()
 
     def loads(self, state: tuple[Any]) -> None:
-        self._paths: ak.Array = ak.Array(state[0])
+        print(state[0])
+        self._stl_path: str = state[0]
+        self._paths: ak.Array = ak.Array(state[1])
         return None
 
 
@@ -107,7 +109,6 @@ class ViewProviderSliceObject:
         self._switch.addChild(self._sep)
         view_obj.RootNode.addChild(self._switch)
 
-        self._view_obj: Gui.ViewProvider = view_obj
         view_obj.Proxy = self
 
     # noinspection PyPep8Naming
@@ -115,14 +116,14 @@ class ViewProviderSliceObject:
         if prop in ("Height", "Width", "Perimeters", "Pattern", "Density", "Angle", "Anchor"):
             paths: Optional[ak.Array] = cast(SliceObject, feature_obj.Proxy).paths
             if paths is not None and len(paths) > 1:
-                self._view_obj.Layer = len(paths)
+                feature_obj.ViewObject.Layer = len(paths)
 
                 remaining_layers: ak.Array = paths[:len(paths) - 1]
                 self._coords.point.values = ak.flatten(ak.flatten(remaining_layers)).to_list()
                 self._lines.numVertices.values = ak.flatten(ak.num(remaining_layers, axis=-1), axis=None).to_list()
 
             else:
-                self._view_obj.Layer = 0
+                feature_obj.ViewObject.Layer = 0
                 self._coords.point.values = []
                 self._lines.numVertices.values = []
 
@@ -150,15 +151,30 @@ class ViewProviderSliceObject:
             print(pos_idx)
 
     # noinspection PyMethodMayBeStatic
-    def dumps(self):
+    def dumps(self) -> Optional[tuple[Any]]:
         return None
 
     # noinspection PyUnusedLocal, PyMethodMayBeStatic
-    def loads(self, state):
+    def loads(self, state: Optional[tuple[Any]]) -> None:
+        self._switch: coin.SoSwitch = coin.SoSwitch()
+        self._sep: coin.SoSeparator = coin.SoSeparator()
+        self._sep.ref()
+        self._coords: coin.SoCoordinate3 = coin.SoCoordinate3()
+        self._lines: coin.SoLineSet = coin.SoLineSet()
+        self._sep.addChild(self._coords)
+        self._sep.addChild(self._lines)
+        self._switch.addChild(self._sep)
+
         return None
 
 
 if __name__ == "__main__":
+    if os.getcwd() not in sys.path:
+        sys.path.append(os.getcwd())
+
+    # noinspection PyUnresolvedReferences
+    from slice_object import SliceObject, ViewProviderSliceObject
+
     if App.ActiveDocument:
         if len(Gui.Selection.getSelection()) > 0:
             selection: App.DocumentObject = Gui.Selection.getSelection()[0]
