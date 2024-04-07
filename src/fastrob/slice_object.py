@@ -21,6 +21,7 @@ from utils import slice_stl, parse_g_code_layers
 
 class SliceObject:
     def __init__(self, feat_obj: Part.Feature, mesh: Mesh.Mesh) -> None:
+        feat_obj.addProperty("App::PropertyLink", "Mesh", "Slicing", "Target mesh").Mesh = mesh
         feat_obj.addProperty("App::PropertyLength", "Height", "Slicing", "Layer height of the slice").Height = 2.
         feat_obj.addProperty("App::PropertyLength", "Width", "Slicing", "Width of the seams").Width = 6.
         feat_obj.addProperty("App::PropertyInteger", "Perimeters", "Slicing", "Number of perimeters").Perimeters = 1
@@ -55,7 +56,13 @@ class SliceObject:
 
     # noinspection PyPep8Naming
     def onChanged(self, feat_obj: Part.Feature, prop: str) -> None:
-        if prop in ("Height", "Width", "Perimeters", "Pattern", "Density", "Angle", "Anchor"):
+        if prop is "Mesh":
+            # noinspection PyUnresolvedReferences
+            self._stl_path: str = os.path.join(App.getUserAppDataDir(), "fastrob", feat_obj.Mesh.Name.lower())
+            # noinspection PyUnresolvedReferences
+            Mesh.export([feat_obj.Mesh], self._stl_path + ".stl")
+
+        if prop in ("Mesh", "Height", "Width", "Perimeters", "Pattern", "Density", "Angle", "Anchor"):
             # noinspection PyUnresolvedReferences
             p: subprocess.CompletedProcess = slice_stl(
                 file=self._stl_path + ".stl",
@@ -114,7 +121,7 @@ class ViewProviderSliceObject:
         if self._switch not in feature_obj.ViewObject.RootNode.getChildren():
             feature_obj.ViewObject.RootNode.addChild(self._switch)
 
-        if prop in ("Height", "Width", "Perimeters", "Pattern", "Density", "Angle", "Anchor"):
+        if prop in ("Mesh", "Height", "Width", "Perimeters", "Pattern", "Density", "Angle", "Anchor"):
             paths: Optional[ak.Array] = cast(SliceObject, feature_obj.Proxy).paths
             if paths is not None and len(paths) > 1:
                 feature_obj.ViewObject.Layer = len(paths)
@@ -169,12 +176,6 @@ class ViewProviderSliceObject:
 
 
 if __name__ == "__main__":
-    if os.getcwd() not in sys.path:
-        sys.path.append(os.getcwd())
-
-    # noinspection PyUnresolvedReferences
-    from slice_object import SliceObject, ViewProviderSliceObject
-
     if App.ActiveDocument:
         if len(Gui.Selection.getSelection()) > 0:
             selection: App.DocumentObject = Gui.Selection.getSelection()[0]
