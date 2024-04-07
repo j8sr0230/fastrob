@@ -39,11 +39,11 @@ class SliceObject:
         feat_obj.Proxy = self
 
         # noinspection PyUnresolvedReferences
-        self._stl_path: str = os.path.join(App.getUserAppDataDir(), "fastrob", mesh.Name.lower())
-        Mesh.export([mesh], self._stl_path + ".stl")
+        self._stl_path: str = ""
+        # Mesh.export([mesh], self._stl_path + ".stl")
 
         self._paths: Optional[ak.Array] = None
-        self.onChanged(feat_obj, "Height")
+        self.onChanged(feat_obj, "Mesh")
 
         # self._slice_inspector: Optional[SliceInspector] = None
 
@@ -51,32 +51,41 @@ class SliceObject:
     def paths(self) -> ak.Array:
         return self._paths
 
+    # noinspection PyMethodMayBeStatic, PyUnusedLocal
     def execute(self, feat_obj: Part.Feature) -> None:
-        pass
+        print("Exec")
 
     # noinspection PyPep8Naming
     def onChanged(self, feat_obj: Part.Feature, prop: str) -> None:
-        if prop is "Mesh":
+        print("Change")
+        if prop == "Mesh":
             # noinspection PyUnresolvedReferences
-            self._stl_path: str = os.path.join(App.getUserAppDataDir(), "fastrob", feat_obj.Mesh.Name.lower())
-            # noinspection PyUnresolvedReferences
-            Mesh.export([feat_obj.Mesh], self._stl_path + ".stl")
+            if feat_obj.Mesh is not None:
+                # noinspection PyUnresolvedReferences
+                self._stl_path: str = os.path.join(App.getUserAppDataDir(), "fastrob", feat_obj.Mesh.Name.lower())
+                # noinspection PyUnresolvedReferences
+                Mesh.export([feat_obj.Mesh], self._stl_path + ".stl")
+            else:
+                self._stl_path: str = ""
 
         if prop in ("Mesh", "Height", "Width", "Perimeters", "Pattern", "Density", "Angle", "Anchor"):
-            # noinspection PyUnresolvedReferences
-            p: subprocess.CompletedProcess = slice_stl(
-                file=self._stl_path + ".stl",
-                layer_height=float(feat_obj.Height), seam_width=float(feat_obj.Width),
-                perimeters=int(feat_obj.Perimeters), fill_pattern=str(feat_obj.Pattern),
-                fill_density=int(feat_obj.Density), infill_angle=float(feat_obj.Angle),
-                infill_anchor_max=float(feat_obj.Anchor)
-            )
+            if self._stl_path != "":
+                # noinspection PyUnresolvedReferences
+                p: subprocess.CompletedProcess = slice_stl(
+                    file=self._stl_path + ".stl",
+                    layer_height=float(feat_obj.Height), seam_width=float(feat_obj.Width),
+                    perimeters=int(feat_obj.Perimeters), fill_pattern=str(feat_obj.Pattern),
+                    fill_density=int(feat_obj.Density), infill_angle=float(feat_obj.Angle),
+                    infill_anchor_max=float(feat_obj.Anchor)
+                )
 
-            print(p.stdout)
-            print(p.stderr)
+                print(p.stdout)
+                print(p.stderr)
 
-            if not p.stderr:
-                self._paths: ak.Array = ak.Array(parse_g_code_layers(file=self._stl_path + ".gcode"))
+                if not p.stderr:
+                    self._paths: ak.Array = ak.Array(parse_g_code_layers(file=self._stl_path + ".gcode"))
+            else:
+                self._paths: Optional[ak.Array] = None
 
     # noinspection PyPep8Naming
     # def editProperty(self, prop) -> None:
@@ -176,6 +185,12 @@ class ViewProviderSliceObject:
 
 
 if __name__ == "__main__":
+    if os.getcwd() not in sys.path:
+        sys.path.append(os.getcwd())
+
+    # noinspection PyUnresolvedReferences
+    from slice_object import SliceObject, ViewProviderSliceObject
+
     if App.ActiveDocument:
         if len(Gui.Selection.getSelection()) > 0:
             selection: App.DocumentObject = Gui.Selection.getSelection()[0]
