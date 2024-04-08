@@ -20,90 +20,64 @@ from utils import slice_stl, parse_g_code_layers
 
 
 class SliceObject:
-    def __init__(self, feat_obj: Part.Feature, mesh: Mesh.Mesh) -> None:
-        feat_obj.addProperty("App::PropertyLink", "Mesh", "Slicing", "Target mesh").Mesh = mesh
-        feat_obj.addProperty("App::PropertyLength", "Height", "Slicing", "Layer height of the slice").Height = 2.
-        feat_obj.addProperty("App::PropertyLength", "Width", "Slicing", "Width of the seams").Width = 6.
-        feat_obj.addProperty("App::PropertyInteger", "Perimeters", "Slicing", "Number of perimeters").Perimeters = 1
-        feat_obj.addProperty("App::PropertyEnumeration", "Pattern", "Slicing", "Pattern of the filling").Pattern = [
+    def __init__(self, feature_obj: Part.Feature, mesh: Mesh.Mesh) -> None:
+        feature_obj.addProperty("App::PropertyLink", "Mesh", "Slicing", "Target mesh").Mesh = mesh
+        feature_obj.addProperty("App::PropertyLength", "Height", "Slicing", "Layer height of the slice").Height = 2.
+        feature_obj.addProperty("App::PropertyLength", "Width", "Slicing", "Width of the seams").Width = 6.
+        feature_obj.addProperty("App::PropertyInteger", "Perimeters", "Slicing", "Number of perimeters").Perimeters = 1
+        feature_obj.addProperty("App::PropertyEnumeration", "Pattern", "Slicing", "Pattern of the filling").Pattern = [
             "rectilinear", "alignedrectilinear", "grid", "triangles", "stars", "cubic", "line", "concentric",
             "honeycomb", "3dhoneycomb", "gyroid", "hilbertcurve", "archimedeanchords", "conspiratorial",
             "adaptivecubic", "supportcubic", "lightning"
         ]
-        feat_obj.addProperty("App::PropertyPercent", "Density", "Slicing", "Density of the filling").Density = 100
-        feat_obj.addProperty("App::PropertyAngle", "Angle", "Slicing", "Angle of the filling").Angle = 45.
-        feat_obj.addProperty("App::PropertyLength", "Anchor", "Slicing", "Maximal anchor of the filling").Anchor = 10.
+        feature_obj.addProperty("App::PropertyPercent", "Density", "Slicing", "Density of the filling").Density = 100
+        feature_obj.addProperty("App::PropertyAngle", "Angle", "Slicing", "Angle of the filling").Angle = 45.
+        feature_obj.addProperty("App::PropertyLength", "Anchor", "Slicing", "Anchor length of the filling").Anchor = 10.
+        feature_obj.Proxy = self
 
-        # obj.addProperty("App::PropertyString", "Test")
-        # obj.setPropertyStatus("Test", "UserEdit")
-        feat_obj.Proxy = self
-
-        # noinspection PyUnresolvedReferences
-        self._stl_path: str = ""
-        # Mesh.export([mesh], self._stl_path + ".stl")
-
+        self._temp_path: str = ""
         self._paths: Optional[ak.Array] = None
-        self.onChanged(feat_obj, "Mesh")
-
-        # self._slice_inspector: Optional[SliceInspector] = None
 
     @property
-    def paths(self) -> ak.Array:
+    def paths(self) -> Optional[ak.Array]:
         return self._paths
 
     # noinspection PyMethodMayBeStatic, PyUnusedLocal
     def execute(self, feat_obj: Part.Feature) -> None:
-        pass
+        mesh: Mesh.Feature = feat_obj.getPropertyByName("Mesh")
+        if mesh is not None:
+            self._temp_path: str = os.path.join(App.getUserAppDataDir(), "fastrob", mesh.Name.lower())
+            Mesh.export([mesh], self._temp_path + ".stl")
+        else:
+            self._temp_path: str = ""
 
-    # noinspection PyPep8Naming
-    def onChanged(self, feat_obj: Part.Feature, prop: str) -> None:
-        if prop == "Mesh":
+        if self._temp_path != "":
             # noinspection PyUnresolvedReferences
-            if feat_obj.Mesh is not None:
-                # noinspection PyUnresolvedReferences
-                self._stl_path: str = os.path.join(App.getUserAppDataDir(), "fastrob", feat_obj.Mesh.Name.lower())
-                # noinspection PyUnresolvedReferences
-                Mesh.export([feat_obj.Mesh], self._stl_path + ".stl")
-            else:
-                self._stl_path: str = ""
+            p: subprocess.CompletedProcess = slice_stl(
+                file=self._temp_path + ".stl",
+                layer_height=float(feat_obj.Height), seam_width=float(feat_obj.Width),
+                perimeters=int(feat_obj.Perimeters), fill_pattern=str(feat_obj.Pattern),
+                fill_density=int(feat_obj.Density), infill_angle=float(feat_obj.Angle),
+                infill_anchor_max=float(feat_obj.Anchor)
+            )
 
-        if prop in ("Mesh", "Height", "Width", "Perimeters", "Pattern", "Density", "Angle", "Anchor"):
-            if self._stl_path != "":
-                # noinspection PyUnresolvedReferences
-                p: subprocess.CompletedProcess = slice_stl(
-                    file=self._stl_path + ".stl",
-                    layer_height=float(feat_obj.Height), seam_width=float(feat_obj.Width),
-                    perimeters=int(feat_obj.Perimeters), fill_pattern=str(feat_obj.Pattern),
-                    fill_density=int(feat_obj.Density), infill_angle=float(feat_obj.Angle),
-                    infill_anchor_max=float(feat_obj.Anchor)
-                )
+            print(p.stdout)
+            print(p.stderr)
 
-                print(p.stdout)
-                print(p.stderr)
+            if not p.stderr:
+                self._paths: ak.Array = ak.Array(parse_g_code_layers(file=self._temp_path + ".gcode"))
+        else:
+            self._paths: Optional[ak.Array] = None
 
-                if not p.stderr:
-                    self._paths: ak.Array = ak.Array(parse_g_code_layers(file=self._stl_path + ".gcode"))
-            else:
-                self._paths: Optional[ak.Array] = None
+        feat_obj.ViewObject.update()
 
-    # noinspection PyPep8Naming
-    # def editProperty(self, prop) -> None:
-    #     if prop == "PropTest":
-    #         self._slice_inspector = SliceInspector(self._paths)
-    #         self._slice_inspector.show()
+    def dumps(self) -> tuple[str, list[list[list[tuple[float]]]]]:
+        return self._temp_path, self._paths.to_list()
 
-    # text, ok = QtWidgets.QInputDialog.getText(Gui.getMainWindow(), "Object", prop)
-    # if ok:
-    #     App.setActiveTransaction("Edit %s.%s" % (self.Object.Label, prop))
-    #     self.Object.PropTest = text
-    #     App.closeActiveTransaction()
-
-    def dumps(self) -> tuple[str, list]:
-        return self._stl_path, self._paths.to_list()
-
-    def loads(self, state: tuple[str, list]) -> None:
-        self._stl_path: str = state[0]
+    def loads(self, state: tuple[str, list[list[list[tuple[float]]]]]) -> None:
+        self._temp_path: str = state[0]
         self._paths: ak.Array = ak.Array(state[1])
+        self._paths.show()
         return None
 
 
@@ -167,10 +141,10 @@ class ViewProviderSliceObject:
             print(pos_idx)
 
     # noinspection PyMethodMayBeStatic
-    def dumps(self) -> Optional[tuple[Any]]:
+    def dumps(self) -> None:
         return None
 
-    # noinspection PyUnusedLocal, PyMethodMayBeStatic
+    # noinspection PyUnusedLocal
     def loads(self, state: Optional[tuple[Any]]) -> None:
         self._switch: coin.SoSwitch = coin.SoSwitch()
         self._sep: coin.SoSeparator = coin.SoSeparator()
@@ -184,11 +158,11 @@ class ViewProviderSliceObject:
 
 
 if __name__ == "__main__":
-    # if os.getcwd() not in sys.path:
-    #     sys.path.append(os.getcwd())
-    #
-    # # noinspection PyUnresolvedReferences
-    # from slice_object import SliceObject, ViewProviderSliceObject
+    if os.getcwd() not in sys.path:
+        sys.path.append(os.getcwd())
+
+    # noinspection PyUnresolvedReferences
+    from slice_object import SliceObject, ViewProviderSliceObject
 
     if App.ActiveDocument:
         if len(Gui.Selection.getSelection()) > 0:
@@ -201,7 +175,7 @@ if __name__ == "__main__":
                 slice_doc_obj: Part.Feature = cast(
                     Part.Feature, App.ActiveDocument.addObject("Part::FeaturePython", "Slice")
                 )
-                SliceObject(feat_obj=slice_doc_obj, mesh=selection)
+                SliceObject(feature_obj=slice_doc_obj, mesh=selection)
                 ViewProviderSliceObject(view_obj=slice_doc_obj.ViewObject)
             else:
                 print("No mesh selected.")
