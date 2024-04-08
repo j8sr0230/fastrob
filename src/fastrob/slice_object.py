@@ -88,13 +88,28 @@ class ViewProviderSliceObject:
 
         self._switch: coin.SoSwitch = coin.SoSwitch()
         self._switch.whichChild = coin.SO_SWITCH_ALL
-        self._sep: coin.SoSeparator = coin.SoSeparator()
-        self._sep.ref()
-        self._coords: coin.SoCoordinate3 = coin.SoCoordinate3()
-        self._lines: coin.SoLineSet = coin.SoLineSet()
-        self._sep.addChild(self._coords)
-        self._sep.addChild(self._lines)
-        self._switch.addChild(self._sep)
+
+        self._remaining_layers_sep: coin.SoSeparator = coin.SoSeparator()
+        self._remaining_layers_sep.ref()
+        self._remaining_layers_color: coin.SoBaseColor = coin.SoBaseColor()
+        self._remaining_layers_color.rgb.setValue(.8, .8, .8)
+        self._remaining_layers_sep.addChild(self._remaining_layers_color)
+        self._remaining_coords: coin.SoCoordinate3 = coin.SoCoordinate3()
+        self._remaining_layers_sep.addChild(self._remaining_coords)
+        self._remaining_lines: coin.SoLineSet = coin.SoLineSet()
+        self._remaining_layers_sep.addChild(self._remaining_lines)
+        self._switch.addChild(self._remaining_layers_sep)
+
+        self._top_layer_sep: coin.SoSeparator = coin.SoSeparator()
+        self._top_layer_sep.ref()
+        self._top_layer_color: coin.SoBaseColor = coin.SoBaseColor()
+        self._top_layer_color.rgb.setValue(.2, .2, .2)
+        self._remaining_layers_sep.addChild(self._top_layer_color)
+        self._top_coords: coin.SoCoordinate3 = coin.SoCoordinate3()
+        self._top_layer_sep.addChild(self._top_coords)
+        self._top_lines: coin.SoLineSet = coin.SoLineSet()
+        self._top_layer_sep.addChild(self._top_lines)
+        self._switch.addChild(self._top_layer_sep)
 
         view_obj.Proxy = self
 
@@ -109,13 +124,15 @@ class ViewProviderSliceObject:
                 feature_obj.ViewObject.Layer = len(paths)
 
                 remaining_layers: ak.Array = paths[:len(paths) - 1]
-                self._coords.point.values = ak.flatten(ak.flatten(remaining_layers)).to_list()
-                self._lines.numVertices.values = ak.flatten(ak.num(remaining_layers, axis=-1), axis=None).to_list()
+                self._remaining_coords.point.values = ak.flatten(ak.flatten(remaining_layers)).to_list()
+                self._remaining_lines.numVertices.values = ak.flatten(
+                    ak.num(remaining_layers, axis=-1), axis=None
+                ).to_list()
 
             else:
                 feature_obj.ViewObject.Layer = 0
-                self._coords.point.values = []
-                self._lines.numVertices.values = []
+                self._remaining_coords.point.values = []
+                self._remaining_lines.numVertices.values = []
 
     # noinspection PyPep8Naming, PyMethodMayBeStatic
     def onChanged(self, view_obj: Any, prop: str):
@@ -125,16 +142,20 @@ class ViewProviderSliceObject:
             else:
                 self._switch.whichChild = coin.SO_SWITCH_NONE
 
+        elif prop == "LineColor":
+            color: tuple[float] = view_obj.getPropertyByName("LineColor")
+            self._top_layer_color.rgb.setValue(color[0], color[1], color[2])
+
         elif prop == "Layer":
             layer_idx: int = view_obj.getPropertyByName("Layer")
             paths: Optional[ak.Array] = cast(SliceObject, view_obj.Object.Proxy).paths
             if layer_idx > 1 and paths is not None:
                 remaining_layers: ak.Array = paths[:layer_idx - 1]
-                self._coords.point.values = ak.flatten(ak.flatten(remaining_layers)).to_list()
-                self._lines.numVertices.values = ak.flatten(ak.num(remaining_layers, axis=-1), axis=None).to_list()
+                self._remaining_coords.point.values = ak.flatten(ak.flatten(remaining_layers)).to_list()
+                self._remaining_lines.numVertices.values = ak.flatten(ak.num(remaining_layers, axis=-1), axis=None).to_list()
             else:
-                self._coords.point.values = []
-                self._lines.numVertices.values = []
+                self._remaining_coords.point.values = []
+                self._remaining_lines.numVertices.values = []
 
         elif prop == "Position":
             pos_idx: int = view_obj.getPropertyByName("Position")
@@ -147,13 +168,13 @@ class ViewProviderSliceObject:
     # noinspection PyUnusedLocal
     def loads(self, state: Optional[tuple[Any]]) -> None:
         self._switch: coin.SoSwitch = coin.SoSwitch()
-        self._sep: coin.SoSeparator = coin.SoSeparator()
-        self._sep.ref()
-        self._coords: coin.SoCoordinate3 = coin.SoCoordinate3()
-        self._lines: coin.SoLineSet = coin.SoLineSet()
-        self._sep.addChild(self._coords)
-        self._sep.addChild(self._lines)
-        self._switch.addChild(self._sep)
+        self._remaining_layers_sep: coin.SoSeparator = coin.SoSeparator()
+        self._remaining_layers_sep.ref()
+        self._remaining_coords: coin.SoCoordinate3 = coin.SoCoordinate3()
+        self._remaining_lines: coin.SoLineSet = coin.SoLineSet()
+        self._remaining_layers_sep.addChild(self._remaining_coords)
+        self._remaining_layers_sep.addChild(self._remaining_lines)
+        self._switch.addChild(self._remaining_layers_sep)
         return None
 
 
