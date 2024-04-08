@@ -15,7 +15,7 @@ import Mesh
 
 if os.getcwd() not in sys.path:
     sys.path.append(os.getcwd())
-# from slice_inspector import SliceInspector
+
 from utils import slice_stl, parse_g_code_layers
 
 
@@ -71,13 +71,13 @@ class SliceObject:
 
         feat_obj.ViewObject.update()
 
-    def dumps(self) -> tuple[str, list[list[list[tuple[float]]]]]:
-        return self._temp_path, self._paths.to_list()
+    def dumps(self) -> tuple[str, dict]:
+        return self._temp_path, ak.to_json(self._paths)
 
-    def loads(self, state: tuple[str, list[list[list[tuple[float]]]]]) -> None:
+    def loads(self, state: tuple[str, dict]) -> None:
         self._temp_path: str = state[0]
-        self._paths: ak.Array = ak.Array(state[1])
-        self._paths.show()
+        paths_record: ak.Array = ak.from_json(state[1])
+        self._paths: ak.Array = ak.zip([paths_record["0"], paths_record["1"], paths_record["2"]])
         return None
 
 
