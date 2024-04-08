@@ -4,6 +4,7 @@ import os
 import sys
 import subprocess
 
+import numpy as np
 import awkward as ak
 
 from pivy import coin
@@ -152,14 +153,30 @@ class ViewProviderSliceObject:
             if layer_idx > 1 and paths is not None:
                 remaining_layers: ak.Array = paths[:layer_idx - 1]
                 self._remaining_coords.point.values = ak.flatten(ak.flatten(remaining_layers)).to_list()
-                self._remaining_lines.numVertices.values = ak.flatten(ak.num(remaining_layers, axis=-1), axis=None).to_list()
+                self._remaining_lines.numVertices.values = ak.flatten(
+                    ak.num(remaining_layers, axis=-1), axis=None
+                ).to_list()
             else:
                 self._remaining_coords.point.values = []
                 self._remaining_lines.numVertices.values = []
 
         elif prop == "Position":
+            layer_idx: int = view_obj.getPropertyByName("Layer")
             pos_idx: int = view_obj.getPropertyByName("Position")
-            print(pos_idx)
+            paths: Optional[ak.Array] = cast(SliceObject, view_obj.Object.Proxy).paths
+            if paths is not None and 0 < layer_idx < len(paths):
+                current_layer: ak.Array = paths[layer_idx-1]
+                path_lengths: ak.Array = ak.num(current_layer, axis=1)
+                accumulated_path_lengths: np.ndarray = np.add.accumulate(path_lengths.to_list())
+
+                completed_sections: np.ndarray = current_layer[accumulated_path_lengths < pos_idx + 1]
+                started_section: np.ndarray = np.where(accumulated_path_lengths >= int(pos_idx) + 1)
+                started_section_id: Optional[int] = started_section[0][0] if started_section[0].size > 0 else None
+                print(path_lengths)
+                print(accumulated_path_lengths)
+                print(completed_sections)
+                print(started_section)
+                print(started_section_id)
 
     # noinspection PyMethodMayBeStatic
     def dumps(self) -> None:
