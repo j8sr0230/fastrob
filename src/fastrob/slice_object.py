@@ -105,7 +105,7 @@ class ViewProviderSliceObject:
         self._top_layer_sep.ref()
         self._top_layer_color: coin.SoBaseColor = coin.SoBaseColor()
         self._top_layer_color.rgb.setValue(.2, .2, .2)
-        self._remaining_layers_sep.addChild(self._top_layer_color)
+        self._top_layer_sep.addChild(self._top_layer_color)
         self._top_coords: coin.SoCoordinate3 = coin.SoCoordinate3()
         self._top_layer_sep.addChild(self._top_coords)
         self._top_lines: coin.SoLineSet = coin.SoLineSet()
@@ -169,14 +169,31 @@ class ViewProviderSliceObject:
                 path_lengths: ak.Array = ak.num(current_layer, axis=1)
                 accumulated_path_lengths: np.ndarray = np.add.accumulate(path_lengths.to_list())
 
-                completed_sections: np.ndarray = current_layer[accumulated_path_lengths < pos_idx + 1]
-                started_section: np.ndarray = np.where(accumulated_path_lengths >= int(pos_idx) + 1)
-                started_section_id: Optional[int] = started_section[0][0] if started_section[0].size > 0 else None
-                print(path_lengths)
-                print(accumulated_path_lengths)
-                print(completed_sections)
-                print(started_section)
-                print(started_section_id)
+                completed_sections: ak.Array = current_layer[accumulated_path_lengths < pos_idx + 1]
+                started_section_ids: np.ndarray = np.where(accumulated_path_lengths >= int(pos_idx) + 1)
+                started_section_id: Optional[int] = (started_section_ids[0][0]
+                                                     if started_section_ids[0].size > 0 else None)
+                if started_section_id is not None:
+                    if started_section_id > 0:
+                        pos_index_offset: int = sum(path_lengths[:started_section_id])
+                        current_state: ak.Array = ak.concatenate([
+                            completed_sections, [current_layer[started_section_id][:(pos_idx - pos_index_offset)]]
+                        ])
+                    else:
+                        current_state: ak.Array = ak.concatenate([
+                                completed_sections,  [current_layer[started_section_id][:pos_idx]]
+                        ])
+                else:
+                    current_state: ak.Array = completed_sections
+
+                current_state.show()
+                ak.flatten(current_state).show()
+                print(ak.num(current_state, axis=1))
+
+                self._top_coords.point.values = ak.flatten(current_state).to_list()
+                self._top_lines.numVertices.values = ak.flatten(
+                    ak.num(current_state, axis=1), axis=None
+                ).to_list()
 
     # noinspection PyMethodMayBeStatic
     def dumps(self) -> None:
