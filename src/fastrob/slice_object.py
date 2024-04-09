@@ -126,8 +126,6 @@ class ViewProviderSliceObject:
             paths: Optional[ak.Array] = cast(SliceObject, feature_obj.Proxy).paths
             if paths is not None and len(paths) > 1:
                 feature_obj.ViewObject.Layer = len(paths)
-                feature_obj.ViewObject.Position = len(paths[-1])
-
                 remaining_layers: ak.Array = paths[:len(paths) - 1]
                 self._remaining_coords.point.values = ak.flatten(ak.flatten(remaining_layers)).to_list()
                 self._remaining_lines.numVertices.values = ak.flatten(
@@ -135,6 +133,7 @@ class ViewProviderSliceObject:
                 ).to_list()
 
                 current_layer: ak.Array = paths[-1]
+                feature_obj.ViewObject.Position = ak.sum(ak.num(current_layer))
                 self._top_coords.point.values = ak.flatten(current_layer).to_list()
                 self._top_lines.numVertices.values = ak.flatten(ak.num(current_layer, axis=1), axis=None).to_list()
 
@@ -144,6 +143,7 @@ class ViewProviderSliceObject:
                 self._remaining_lines.numVertices.values = []
 
                 current_layer: ak.Array = paths[0]
+                feature_obj.ViewObject.Position = 0
                 self._top_coords.point.values = ak.flatten(current_layer).to_list()
                 self._top_lines.numVertices.values = ak.flatten(ak.num(current_layer, axis=1), axis=None).to_list()
 
@@ -197,7 +197,7 @@ class ViewProviderSliceObject:
             layer_idx: int = view_obj.getPropertyByName("Layer")
             pos_idx: int = view_obj.getPropertyByName("Position")
             paths: Optional[ak.Array] = cast(SliceObject, view_obj.Object.Proxy).paths
-            if (paths is not None) and (0 < layer_idx < len(paths)) and (0 < pos_idx):
+            if (paths is not None) and (0 < layer_idx - 1 < len(paths)) and (0 < pos_idx):
                 current_layer: ak.Array = paths[layer_idx-1]
                 path_lengths: ak.Array = ak.num(current_layer, axis=1)
                 accumulated_path_lengths: np.ndarray = np.add.accumulate(path_lengths.to_list())
