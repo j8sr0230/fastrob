@@ -125,15 +125,15 @@ class ViewProviderSliceObject:
         if prop in ("Mesh", "Height", "Width", "Perimeters", "Pattern", "Density", "Angle", "Anchor"):
             paths: Optional[ak.Array] = cast(SliceObject, feature_obj.Proxy).paths
             if paths is not None and len(paths) > 1:
-                feature_obj.ViewObject.Layer = len(paths)
                 remaining_layers: ak.Array = paths[:len(paths) - 1]
+                feature_obj.ViewObject.Layer = len(paths)
                 self._remaining_coords.point.values = ak.flatten(ak.flatten(remaining_layers)).to_list()
                 self._remaining_lines.numVertices.values = ak.flatten(
                     ak.num(remaining_layers, axis=-1), axis=None
                 ).to_list()
 
                 current_layer: ak.Array = paths[-1]
-                feature_obj.ViewObject.Position = ak.sum(ak.num(current_layer))
+                feature_obj.ViewObject.Position = int(ak.sum(ak.num(current_layer)))
                 self._top_coords.point.values = ak.flatten(current_layer).to_list()
                 self._top_lines.numVertices.values = ak.flatten(ak.num(current_layer, axis=1), axis=None).to_list()
 
@@ -155,6 +155,11 @@ class ViewProviderSliceObject:
                 feature_obj.ViewObject.Position = 0
                 self._top_coords.point.values = []
                 self._top_lines.numVertices.values = []
+
+            color: tuple[float] = feature_obj.ViewObject.getPropertyByName("LineColor")
+            self._top_layer_color.rgb.setValue(color[0], color[1], color[2])
+            width: int = feature_obj.ViewObject.getPropertyByName("LineWidth")
+            self._top_layer_style.lineWidth = width
 
     # noinspection PyPep8Naming, PyMethodMayBeStatic
     def onChanged(self, view_obj: Any, prop: str):
