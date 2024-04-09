@@ -106,6 +106,9 @@ class ViewProviderSliceObject:
         self._top_layer_color: coin.SoBaseColor = coin.SoBaseColor()
         self._top_layer_color.rgb.setValue(.2, .2, .2)
         self._top_layer_sep.addChild(self._top_layer_color)
+        self._top_layer_style = coin.SoDrawStyle()
+        self._top_layer_style.style = coin.SoDrawStyle.LINES
+        self._top_layer_sep.addChild(self._top_layer_style)
         self._top_coords: coin.SoCoordinate3 = coin.SoCoordinate3()
         self._top_layer_sep.addChild(self._top_coords)
         self._top_lines: coin.SoLineSet = coin.SoLineSet()
@@ -147,6 +150,10 @@ class ViewProviderSliceObject:
             color: tuple[float] = view_obj.getPropertyByName("LineColor")
             self._top_layer_color.rgb.setValue(color[0], color[1], color[2])
 
+        elif prop == "LineWidth":
+            width: int = view_obj.getPropertyByName("LineWidth")
+            self._top_layer_style.lineWidth = width
+
         elif prop == "Layer":
             layer_idx: int = view_obj.getPropertyByName("Layer")
             paths: Optional[ak.Array] = cast(SliceObject, view_obj.Object.Proxy).paths
@@ -159,9 +166,7 @@ class ViewProviderSliceObject:
 
                 current_layer: ak.Array = paths[layer_idx - 1]
                 self._top_coords.point.values = ak.flatten(current_layer).to_list()
-                self._top_lines.numVertices.values = ak.flatten(
-                    ak.num(current_layer, axis=1), axis=None
-                ).to_list()
+                self._top_lines.numVertices.values = ak.flatten(ak.num(current_layer, axis=1), axis=None).to_list()
 
             else:
                 self._remaining_coords.point.values = []
@@ -171,35 +176,33 @@ class ViewProviderSliceObject:
             layer_idx: int = view_obj.getPropertyByName("Layer")
             pos_idx: int = view_obj.getPropertyByName("Position")
             paths: Optional[ak.Array] = cast(SliceObject, view_obj.Object.Proxy).paths
-            if paths is not None and 0 < layer_idx < len(paths):
+            if (paths is not None) and (0 < layer_idx < len(paths)) and (0 < pos_idx):
                 current_layer: ak.Array = paths[layer_idx-1]
                 path_lengths: ak.Array = ak.num(current_layer, axis=1)
                 accumulated_path_lengths: np.ndarray = np.add.accumulate(path_lengths.to_list())
 
                 completed_sections: ak.Array = current_layer[accumulated_path_lengths < pos_idx + 1]
                 started_section_ids: np.ndarray = np.where(accumulated_path_lengths >= int(pos_idx) + 1)
-                started_section_id: Optional[int] = (started_section_ids[0][0]
-                                                     if started_section_ids[0].size > 0 else None)
-                if started_section_id is not None:
-                    if started_section_id > 0:
-                        pos_index_offset: int = sum(path_lengths[:started_section_id])
+                first_started_section_id: Optional[int] = (started_section_ids[0][0]
+                                                           if started_section_ids[0].size > 0 else None)
+                if first_started_section_id is not None:
+                    if first_started_section_id > 0:
+                        pos_index_offset: int = sum(path_lengths[:first_started_section_id])
                         current_state: ak.Array = ak.concatenate([
-                            completed_sections, [current_layer[started_section_id][:(pos_idx - pos_index_offset)]]
+                            completed_sections, [current_layer[first_started_section_id][:(pos_idx - pos_index_offset)]]
                         ])
                     else:
                         current_state: ak.Array = ak.concatenate([
-                                completed_sections,  [current_layer[started_section_id][:pos_idx]]
+                                completed_sections,  [current_layer[first_started_section_id][:pos_idx]]
                         ])
                 else:
                     current_state: ak.Array = completed_sections
 
-                current_state.show()
-                ak.flatten(current_state).show()
-
                 self._top_coords.point.values = ak.flatten(current_state).to_list()
-                self._top_lines.numVertices.values = ak.flatten(
-                    ak.num(current_state, axis=1), axis=None
-                ).to_list()
+                self._top_lines.numVertices.values = ak.flatten(ak.num(current_state, axis=1), axis=None).to_list()
+            else:
+                self._top_coords.point.values = []
+                self._top_lines.numVertices.values = []
 
     # noinspection PyMethodMayBeStatic
     def dumps(self) -> None:
@@ -208,13 +211,30 @@ class ViewProviderSliceObject:
     # noinspection PyUnusedLocal
     def loads(self, state: Optional[tuple[Any]]) -> None:
         self._switch: coin.SoSwitch = coin.SoSwitch()
+
         self._remaining_layers_sep: coin.SoSeparator = coin.SoSeparator()
         self._remaining_layers_sep.ref()
+        self._remaining_layers_color: coin.SoBaseColor = coin.SoBaseColor()
+        self._remaining_layers_sep.addChild(self._remaining_layers_color)
         self._remaining_coords: coin.SoCoordinate3 = coin.SoCoordinate3()
-        self._remaining_lines: coin.SoLineSet = coin.SoLineSet()
         self._remaining_layers_sep.addChild(self._remaining_coords)
+        self._remaining_lines: coin.SoLineSet = coin.SoLineSet()
         self._remaining_layers_sep.addChild(self._remaining_lines)
         self._switch.addChild(self._remaining_layers_sep)
+
+        self._top_layer_sep: coin.SoSeparator = coin.SoSeparator()
+        self._top_layer_sep.ref()
+        self._top_layer_color: coin.SoBaseColor = coin.SoBaseColor()
+        self._top_layer_sep.addChild(self._top_layer_color)
+        self._top_layer_style = coin.SoDrawStyle()
+        self._top_layer_style.style = coin.SoDrawStyle.LINES
+        self._top_layer_sep.addChild(self._top_layer_style)
+        self._top_coords: coin.SoCoordinate3 = coin.SoCoordinate3()
+        self._top_layer_sep.addChild(self._top_coords)
+        self._top_lines: coin.SoLineSet = coin.SoLineSet()
+        self._top_layer_sep.addChild(self._top_lines)
+        self._switch.addChild(self._top_layer_sep)
+
         return None
 
 
