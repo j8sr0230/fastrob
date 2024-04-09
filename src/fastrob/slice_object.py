@@ -157,7 +157,7 @@ class ViewProviderSliceObject:
         elif prop == "Layer":
             layer_idx: int = view_obj.getPropertyByName("Layer")
             paths: Optional[ak.Array] = cast(SliceObject, view_obj.Object.Proxy).paths
-            if layer_idx > 1 and paths is not None:
+            if paths is not None and layer_idx > 1:
                 remaining_layers: ak.Array = paths[:layer_idx - 1]
                 self._remaining_coords.point.values = ak.flatten(ak.flatten(remaining_layers)).to_list()
                 self._remaining_lines.numVertices.values = ak.flatten(
@@ -167,7 +167,7 @@ class ViewProviderSliceObject:
                 self._remaining_coords.point.values = []
                 self._remaining_lines.numVertices.values = []
 
-            if layer_idx > 0 and paths is not None:
+            if paths is not None and 0 < layer_idx < len(paths):
                 current_layer: ak.Array = paths[layer_idx - 1]
                 self._top_coords.point.values = ak.flatten(current_layer).to_list()
                 self._top_lines.numVertices.values = ak.flatten(ak.num(current_layer, axis=1), axis=None).to_list()
