@@ -210,16 +210,11 @@ class ViewProviderSliceObject:
                 first_started_section_id: Optional[int] = (started_section_ids[0][0]
                                                            if started_section_ids[0].size > 0 else None)
                 if first_started_section_id is not None:
-                    if first_started_section_id > 0:
-                        pos_index_offset: int = sum(path_lengths[:first_started_section_id])
-                        current_state: ak.Array = ak.concatenate([
-                            completed_sections,
-                            [current_layer[first_started_section_id][:(pos_idx + 1 - pos_index_offset)]]
-                        ])
-                    else:
-                        current_state: ak.Array = ak.concatenate([
-                                completed_sections,  [current_layer[first_started_section_id][:pos_idx + 1]]
-                        ])
+                    pos_index_offset: int = sum(path_lengths[:first_started_section_id])
+                    current_state: ak.Array = ak.concatenate([
+                        completed_sections,
+                        [current_layer[first_started_section_id][:(pos_idx + 1 - pos_index_offset)]]
+                    ])
                 else:
                     current_state: ak.Array = completed_sections
 
