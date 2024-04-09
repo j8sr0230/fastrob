@@ -93,7 +93,6 @@ class ViewProviderSliceObject:
         self._remaining_layers_sep: coin.SoSeparator = coin.SoSeparator()
         self._remaining_layers_sep.ref()
         self._remaining_layers_color: coin.SoBaseColor = coin.SoBaseColor()
-        self._remaining_layers_color.rgb.setValue(.8, .8, .8)
         self._remaining_layers_sep.addChild(self._remaining_layers_color)
         self._remaining_coords: coin.SoCoordinate3 = coin.SoCoordinate3()
         self._remaining_layers_sep.addChild(self._remaining_coords)
@@ -104,7 +103,6 @@ class ViewProviderSliceObject:
         self._top_layer_sep: coin.SoSeparator = coin.SoSeparator()
         self._top_layer_sep.ref()
         self._top_layer_color: coin.SoBaseColor = coin.SoBaseColor()
-        self._top_layer_color.rgb.setValue(.2, .2, .2)
         self._top_layer_sep.addChild(self._top_layer_color)
         self._top_layer_style = coin.SoDrawStyle()
         self._top_layer_style.style = coin.SoDrawStyle.LINES
@@ -161,6 +159,12 @@ class ViewProviderSliceObject:
             width: int = feature_obj.ViewObject.getPropertyByName("LineWidth")
             self._top_layer_style.lineWidth = width
 
+            print(bool(feature_obj.ViewObject.getPropertyByName("Visibility")))
+            # if bool(feature_obj.ViewObject.getPropertyByName("Visibility")) is True:
+            #     self._switch.whichChild = coin.SO_SWITCH_ALL
+            # else:
+            #     self._switch.whichChild = coin.SO_SWITCH_NONE
+
     # noinspection PyPep8Naming, PyMethodMayBeStatic
     def onChanged(self, view_obj: Any, prop: str):
         if prop == "Visibility":
@@ -208,7 +212,7 @@ class ViewProviderSliceObject:
                 accumulated_path_lengths: np.ndarray = np.add.accumulate(path_lengths.to_list())
 
                 completed_sections: ak.Array = current_layer[accumulated_path_lengths < pos_idx + 1]
-                started_section_ids: np.ndarray = np.where(accumulated_path_lengths >= int(pos_idx) + 1)
+                started_section_ids: np.ndarray = np.where(accumulated_path_lengths >= pos_idx + 1)
                 first_started_section_id: Optional[int] = (started_section_ids[0][0]
                                                            if started_section_ids[0].size > 0 else None)
                 if first_started_section_id is not None:
@@ -242,7 +246,6 @@ class ViewProviderSliceObject:
         self._remaining_layers_sep: coin.SoSeparator = coin.SoSeparator()
         self._remaining_layers_sep.ref()
         self._remaining_layers_color: coin.SoBaseColor = coin.SoBaseColor()
-        self._remaining_layers_color.rgb.setValue(.8, .8, .8)
         self._remaining_layers_sep.addChild(self._remaining_layers_color)
         self._remaining_coords: coin.SoCoordinate3 = coin.SoCoordinate3()
         self._remaining_layers_sep.addChild(self._remaining_coords)
@@ -253,7 +256,6 @@ class ViewProviderSliceObject:
         self._top_layer_sep: coin.SoSeparator = coin.SoSeparator()
         self._top_layer_sep.ref()
         self._top_layer_color: coin.SoBaseColor = coin.SoBaseColor()
-        self._top_layer_color.rgb.setValue(.2, .2, .2)
         self._top_layer_sep.addChild(self._top_layer_color)
         self._top_layer_style = coin.SoDrawStyle()
         self._top_layer_style.style = coin.SoDrawStyle.LINES
