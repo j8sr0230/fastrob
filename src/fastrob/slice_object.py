@@ -161,7 +161,6 @@ class ViewProviderSliceObject:
 
     # noinspection PyPep8Naming, PyMethodMayBeStatic
     def onChanged(self, view_obj: Any, prop: str):
-        print(prop)
         if prop == "Visibility":
             if bool(view_obj.Visibility) is True:
                 self._switch.whichChild = coin.SO_SWITCH_ALL
