@@ -120,6 +120,11 @@ class ViewProviderSliceObject:
         if self._switch not in feature_obj.ViewObject.RootNode.getChildren():
             feature_obj.ViewObject.RootNode.addChild(self._switch)
 
+            color: tuple[float] = feature_obj.ViewObject.getPropertyByName("LineColor")
+            self._top_layer_color.rgb.setValue(color[0], color[1], color[2])
+            width: int = feature_obj.ViewObject.getPropertyByName("LineWidth")
+            self._top_layer_style.lineWidth = width
+
         if prop in ("Mesh", "Height", "Width", "Perimeters", "Pattern", "Density", "Angle", "Anchor"):
             paths: Optional[ak.Array] = cast(SliceObject, feature_obj.Proxy).paths
             if paths is not None and len(paths) > 1:
@@ -154,21 +159,11 @@ class ViewProviderSliceObject:
                 self._top_coords.point.values = []
                 self._top_lines.numVertices.values = []
 
-            color: tuple[float] = feature_obj.ViewObject.getPropertyByName("LineColor")
-            self._top_layer_color.rgb.setValue(color[0], color[1], color[2])
-            width: int = feature_obj.ViewObject.getPropertyByName("LineWidth")
-            self._top_layer_style.lineWidth = width
-
-            print(bool(feature_obj.ViewObject.getPropertyByName("Visibility")))
-            # if bool(feature_obj.ViewObject.getPropertyByName("Visibility")) is True:
-            #     self._switch.whichChild = coin.SO_SWITCH_ALL
-            # else:
-            #     self._switch.whichChild = coin.SO_SWITCH_NONE
-
     # noinspection PyPep8Naming, PyMethodMayBeStatic
     def onChanged(self, view_obj: Any, prop: str):
+        print(prop)
         if prop == "Visibility":
-            if bool(view_obj.Object.Visibility) is False:
+            if bool(view_obj.Visibility) is True:
                 self._switch.whichChild = coin.SO_SWITCH_ALL
             else:
                 self._switch.whichChild = coin.SO_SWITCH_NONE
