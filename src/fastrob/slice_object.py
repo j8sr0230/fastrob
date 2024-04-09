@@ -215,11 +215,12 @@ class ViewProviderSliceObject:
                     if first_started_section_id > 0:
                         pos_index_offset: int = sum(path_lengths[:first_started_section_id])
                         current_state: ak.Array = ak.concatenate([
-                            completed_sections, [current_layer[first_started_section_id][:(pos_idx - pos_index_offset)]]
+                            completed_sections,
+                            [current_layer[first_started_section_id][:(pos_idx + 1 - pos_index_offset)]]
                         ])
                     else:
                         current_state: ak.Array = ak.concatenate([
-                                completed_sections,  [current_layer[first_started_section_id][:pos_idx]]
+                                completed_sections,  [current_layer[first_started_section_id][:pos_idx + 1]]
                         ])
                 else:
                     current_state: ak.Array = completed_sections
