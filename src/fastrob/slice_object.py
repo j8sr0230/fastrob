@@ -163,14 +163,17 @@ class ViewProviderSliceObject:
                 self._remaining_lines.numVertices.values = ak.flatten(
                     ak.num(remaining_layers, axis=-1), axis=None
                 ).to_list()
-
-                current_layer: ak.Array = paths[layer_idx - 1]
-                self._top_coords.point.values = ak.flatten(current_layer).to_list()
-                self._top_lines.numVertices.values = ak.flatten(ak.num(current_layer, axis=1), axis=None).to_list()
-
             else:
                 self._remaining_coords.point.values = []
                 self._remaining_lines.numVertices.values = []
+
+            if layer_idx > 0 and paths is not None:
+                current_layer: ak.Array = paths[layer_idx - 1]
+                self._top_coords.point.values = ak.flatten(current_layer).to_list()
+                self._top_lines.numVertices.values = ak.flatten(ak.num(current_layer, axis=1), axis=None).to_list()
+            else:
+                self._top_coords.point.values = []
+                self._top_lines.numVertices.values = []
 
         elif prop == "Position":
             layer_idx: int = view_obj.getPropertyByName("Layer")
