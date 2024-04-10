@@ -1,4 +1,8 @@
+from typing import Optional
 import subprocess
+
+import numpy as np
+import awkward as ak
 
 from gcodeparser import GcodeParser, GcodeLine
 
@@ -37,8 +41,8 @@ def slice_stl(file: str, layer_height: float, seam_width: float, perimeters: int
     return subprocess.run(args=cmd, shell=True, capture_output=True, text=True)
 
 
-def parse_g_code(file: str) -> list[list[list[tuple[float]]]]:
-    paths: list[list[list[tuple[float]]]] = []
+def parse_g_code(file: str) -> ak.Array:
+    result: list[list[list[tuple[float]]]] = []
 
     with open(file, "r") as f:
         gcode: list[GcodeLine] = GcodeParser(gcode=f.read(), include_comments=False).lines
@@ -76,10 +80,27 @@ def parse_g_code(file: str) -> list[list[list[tuple[float]]]]:
 
                     if layer_change:
                         if len(layer) > 0:
-                            paths.append(layer.copy())
+                            result.append(layer.copy())
                             layer.clear()
 
         if len(layer) > 0:
-            paths.append(layer.copy())
+            result.append(layer.copy())
 
-    return paths
+    return ak.Array(result)
+
+
+def clamp_path(path: ak.Array, idx: int) -> ak.Array:
+    simplified: ak.Array = ak.flatten(path)
+    lengths: ak.Array = ak.num(simplified)
+    accumulated_lengths: np.ndarray = np.add.accumulate(lengths.to_list())
+    completed: ak.Array = simplified[idx + 1 > accumulated_lengths]
+
+    started_ids: np.ndarray = np.where(idx + 1 <= accumulated_lengths)
+    first_started_id: Optional[int] = started_ids[0][0] if len(started_ids[0]) > 0 else None
+
+    result: ak.Array = completed
+    if first_started_id is not None:
+        idx_offset: int = sum(lengths[:first_started_id])
+        result: ak.Array = ak.concatenate([result, [simplified[first_started_id][:(idx + 1 - idx_offset)]]])
+
+    return result
