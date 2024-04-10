@@ -1,14 +1,15 @@
+from __future__ import annotations
 from typing import Any, Optional, cast
 
 import os
 import sys
 import subprocess
+import importlib
 
 import numpy as np
 import awkward as ak
 
 from pivy import coin
-
 import FreeCADGui as Gui
 import FreeCAD as App
 import Part
@@ -17,7 +18,9 @@ import Mesh
 if os.getcwd() not in sys.path:
     sys.path.append(os.getcwd())
 
-from utils import slice_stl, parse_g_code_layers
+import utils
+importlib.reload(utils)
+from utils import slice_stl, parse_g_code_layers  # noqa
 
 
 class SliceObject:
@@ -259,11 +262,9 @@ class ViewProviderSliceObject:
 
 
 if __name__ == "__main__":
-    if os.getcwd() not in sys.path:
-        sys.path.append(os.getcwd())
-
-    # noinspection PyUnresolvedReferences
-    from slice_object import SliceObject, ViewProviderSliceObject
+    import slice_object  # noqa
+    importlib.reload(slice_object)
+    from slice_object import SliceObject, ViewProviderSliceObject  # noqa
 
     if App.ActiveDocument:
         if len(Gui.Selection.getSelection()) > 0:
