@@ -6,11 +6,13 @@ import sys
 import subprocess
 import importlib
 
+import numpy as np
 import awkward as ak
 
 import FreeCADGui as Gui
 import FreeCAD as App
 import Part
+import Points
 import Mesh
 
 if os.getcwd() not in sys.path:
@@ -41,14 +43,14 @@ class SliceObject:
         feature_obj.Position = -1
         feature_obj.addProperty("App::PropertyVectorList", "Points", "Result", "Points of the paths")
         feature_obj.Points = [(0, 0, 0)]
+        feature_obj.addProperty("App::PropertyVector", "Point", "Result", "Current point").Point = (0, 0, 0)
 
         feature_obj.Proxy = self
 
         self._paths: Optional[ak.Array] = None
 
     def execute(self, feature_obj: Part.Feature) -> None:
-        # noinspection PyUnresolvedReferences
-        if feature_obj.Layer == -1 and feature_obj.Position == -1:
+        if feature_obj.getPropertyByName("Layer") == -1 and feature_obj.getPropertyByName("Position") == -1:
             mesh: Mesh.Feature = feature_obj.getPropertyByName("Mesh")
             if mesh is not None:
                 temp_path: str = os.path.join(App.getUserAppDataDir(), "fastrob", mesh.Name.lower())
@@ -68,27 +70,107 @@ class SliceObject:
 
                 if not p.stderr:
                     self._paths: Optional[ak.Array] = ak.Array(parse_g_code(file=temp_path + ".gcode"))
-                    flat_paths: ak.Array = ak.flatten(ak.flatten(self._paths))
+                    simplified_paths: ak.Array = ak.flatten(self._paths)
+                    flat_paths: ak.Array = ak.flatten(simplified_paths)
+                    feature_obj.Position = len(flat_paths)
                     feature_obj.Points = flat_paths.to_list()
+                    feature_obj.Point = flat_paths.to_list()[-1]
+
+                    simplified_path_vectors: list[list[App.Vector]] = []
+                    for path in simplified_paths.to_list():
+                        points_kernel: Points.Points = Points.Points()
+                        points_kernel.addPoints(path)
+                        simplified_path_vectors.append(points_kernel.Points)
+                    feature_obj.Shape = Part.makeCompound(
+                        [Part.makePolygon(path) for path in simplified_path_vectors]
+                    )
                 else:
                     self._paths: Optional[ak.Array] = None
                     feature_obj.Points = [(0, 0, 0)]
+                    feature_obj.Point = (0, 0, 0)
+                    feature_obj.Shape = Part.Shape()
             else:
                 self._paths: Optional[ak.Array] = None
                 feature_obj.Points = [(0, 0, 0)]
-        else:
-            # Layer or Position set
-            pass
+                feature_obj.Point = (0, 0, 0)
+                feature_obj.Shape = Part.Shape()
 
     # noinspection PyPep8Naming, PyMethodMayBeStatic, PyUnusedLocal
-    def onChanged(self, fp: Part.Feature, prop: str) -> None:
-        pass
+    def onChanged(self, feature_obj: Part.Feature, prop: str) -> None:
+        layer_idx: int = feature_obj.getPropertyByName("Layer")
+        pos_idx: int = feature_obj.getPropertyByName("Position")
 
-    def dumps(self) -> tuple[str, dict]:
+        if layer_idx == -1 and prop == "Position" and pos_idx > -1:
+            if self._paths is not None:
+                simplified_paths: ak.Array = ak.flatten(self._paths)
+                path_lengths: ak.Array = ak.num(simplified_paths, axis=1)
+                accumulated_path_lengths: np.ndarray = np.add.accumulate(path_lengths.to_list())
+                completed_sections: ak.Array = simplified_paths[pos_idx + 1 > accumulated_path_lengths]
+
+                started_section_ids: np.ndarray = np.where(pos_idx + 1 <= accumulated_path_lengths)
+                first_started_section_id: Optional[int] = (
+                    started_section_ids[0][0] if started_section_ids[0].size > 0 else None
+                )
+                if first_started_section_id is not None:
+                    pos_index_offset: int = sum(path_lengths[:first_started_section_id])
+                    current_progression: ak.Array = ak.concatenate([
+                        completed_sections,
+                        [simplified_paths[first_started_section_id][:(pos_idx + 1 - pos_index_offset)]]
+                    ])
+                else:
+                    current_progression: ak.Array = completed_sections
+
+                feature_obj.Points = ak.flatten(current_progression).to_list()
+                feature_obj.Point = ak.flatten(current_progression).to_list()[-1]
+
+                simplified_path_vectors: list[list[App.Vector]] = []
+                for path in current_progression.to_list():
+                    points_kernel: Points.Points = Points.Points()
+                    points_kernel.addPoints(path)
+                    simplified_path_vectors.append(points_kernel.Points)
+
+                shape: Part.Shape = Part.makeCompound(
+                    [Part.makePolygon(path) for path in simplified_path_vectors if len(path) > 1]
+                )
+                feature_obj.Shape = shape if len(shape.Vertexes) > 1 else Part.Shape()
+            else:
+                feature_obj.Points = [(0, 0, 0)]
+                feature_obj.Points = (0, 0, 0)
+                feature_obj.Shape = Part.Shape()
+
+        elif prop == "Layer" and layer_idx > -1:
+            if self._paths is not None and 0 <= layer_idx < len(self._paths):
+                current_layer: ak.Array = self._paths[layer_idx]
+                flat_layer: ak.Array = ak.flatten(current_layer)
+                feature_obj.Position = len(flat_layer)
+                feature_obj.Points = flat_layer.to_list()
+                feature_obj.Point = flat_layer.to_list()[-1]
+
+                simplified_path_vectors: list[list[App.Vector]] = []
+                for path in current_layer.to_list():
+                    points_kernel: Points.Points = Points.Points()
+                    points_kernel.addPoints(path)
+                    simplified_path_vectors.append(points_kernel.Points)
+
+                shape: Part.Shape = Part.makeCompound(
+                    [Part.makePolygon(path) for path in simplified_path_vectors if len(path) > 1]
+                )
+                feature_obj.Shape = shape if len(shape.Vertexes) > 1 else Part.Shape()
+
+            else:
+                feature_obj.Position = -1
+                feature_obj.Points = [(0, 0, 0)]
+                feature_obj.Points = (0, 0, 0)
+                feature_obj.Shape = Part.Shape()
+
+        elif layer_idx > -1 and prop == "Position" and pos_idx > -1:
+            print("Current wise")
+
+    def dumps(self) -> dict:
         return ak.to_json(self._paths)
 
-    def loads(self, state: tuple[str, dict]) -> None:
-        paths_record: ak.Array = ak.from_json(state[0])
+    def loads(self, state: dict) -> None:
+        paths_record: ak.Array = ak.from_json(state)
         self._paths: ak.Array = ak.zip([paths_record["0"], paths_record["1"], paths_record["2"]])
         return None
 
