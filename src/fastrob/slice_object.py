@@ -19,7 +19,7 @@ if os.getcwd() not in sys.path:
 
 import utils
 importlib.reload(utils)
-from utils import slice_stl, parse_g_code, clamp_path  # noqa
+from utils import slice_stl, parse_g_code, clamp_path, make_wires  # noqa
 
 
 class SliceObject:
@@ -80,14 +80,7 @@ class SliceObject:
                     feature_obj.PointIndex = len(flat)
                     feature_obj.Points = flat.to_list()
                     feature_obj.Point = flat.to_list()[-1]
-
-                    simplified_vectors: list[list[App.Vector]] = []
-                    for path in simplified.to_list():
-                        points_kernel: Points.Points = Points.Points()
-                        points_kernel.addPoints(path)
-                        simplified_vectors.append(points_kernel.Points)
-
-                    feature_obj.Shape = Part.makeCompound([Part.makePolygon(path) for path in simplified_vectors])
+                    feature_obj.Shape = make_wires(simplified)
                 else:
                     self._paths: Optional[ak.Array] = None
                     feature_obj.Points = [(0, 0, 0)]
@@ -114,17 +107,7 @@ class SliceObject:
                     feature_obj.PointIndex = len(flat_layer) - 1
                     feature_obj.Points = flat_layer.to_list()
                     feature_obj.Point = flat_layer.to_list()[-1]
-
-                    simplified_layer_vectors: list[list[App.Vector]] = []
-                    for path in layer.to_list():
-                        points_kernel: Points.Points = Points.Points()
-                        points_kernel.addPoints(path)
-                        simplified_layer_vectors.append(points_kernel.Points)
-
-                    shape: Part.Shape = Part.makeCompound(
-                        [Part.makePolygon(path) for path in simplified_layer_vectors if len(path) > 1]
-                    )
-                    feature_obj.Shape = shape if len(shape.Vertexes) > 1 else Part.Shape()
+                    feature_obj.Shape = make_wires(layer)
                 else:
                     simplified: ak.Array = ak.flatten(self._paths)
                     flat: ak.Array = ak.flatten(simplified)
@@ -132,14 +115,7 @@ class SliceObject:
                     feature_obj.PointIndex = len(flat)
                     feature_obj.Points = flat.to_list()
                     feature_obj.Point = flat.to_list()[-1]
-
-                    simplified_vectors: list[list[App.Vector]] = []
-                    for path in simplified.to_list():
-                        points_kernel: Points.Points = Points.Points()
-                        points_kernel.addPoints(path)
-                        simplified_vectors.append(points_kernel.Points)
-
-                    feature_obj.Shape = Part.makeCompound([Part.makePolygon(path) for path in simplified_vectors])
+                    feature_obj.Shape = make_wires(simplified)
 
             elif prop == "PointIndex" and layer_idx == -1:
                 clamped: ak.Array = clamp_path(self._paths, point_idx)
@@ -147,17 +123,7 @@ class SliceObject:
 
                 feature_obj.Points = flat_clamped.to_list()
                 feature_obj.Point = flat_clamped.to_list()[-1]
-
-                simplified_clamped_vectors: list[list[App.Vector]] = []
-                for path in clamped.to_list():
-                    points_kernel: Points.Points = Points.Points()
-                    points_kernel.addPoints(path)
-                    simplified_clamped_vectors.append(points_kernel.Points)
-
-                shape: Part.Shape = Part.makeCompound(
-                    [Part.makePolygon(path) for path in simplified_clamped_vectors if len(path) > 1]
-                )
-                feature_obj.Shape = shape if len(shape.Vertexes) > 1 else Part.Shape()
+                feature_obj.Shape = make_wires(clamped)
 
             elif prop == "PointIndex" and layer_idx > -1:
                 clamped_layer_idx = max(0, min(layer_idx, len(self._paths) - 1))
@@ -170,17 +136,7 @@ class SliceObject:
 
                 feature_obj.Points = flat_clamped.to_list()
                 feature_obj.Point = flat_clamped.to_list()[-1]
-
-                simplified_clamped_vectors: list[list[App.Vector]] = []
-                for path in clamped.to_list():
-                    points_kernel: Points.Points = Points.Points()
-                    points_kernel.addPoints(path)
-                    simplified_clamped_vectors.append(points_kernel.Points)
-
-                shape: Part.Shape = Part.makeCompound(
-                    [Part.makePolygon(path) for path in simplified_clamped_vectors if len(path) > 1]
-                )
-                feature_obj.Shape = shape if len(shape.Vertexes) > 1 else Part.Shape()
+                feature_obj.Shape = make_wires(clamped)
         else:
             feature_obj.LayerIndex = -1
             feature_obj.PointIndex = -1

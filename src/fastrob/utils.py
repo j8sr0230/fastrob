@@ -4,6 +4,10 @@ import subprocess
 import numpy as np
 import awkward as ak
 
+import FreeCAD as App
+import Part
+import Points
+
 from gcodeparser import GcodeParser, GcodeLine
 
 
@@ -104,3 +108,14 @@ def clamp_path(path: ak.Array, idx: int) -> ak.Array:
         result: ak.Array = ak.concatenate([result, [simplified[first_started_id][:(idx + 1 - idx_offset)]]])
 
     return result
+
+
+def make_wires(simple_path: ak.Array) -> Part.Shape:
+    vectors: list[list[App.Vector]] = []
+    for path in simple_path.to_list():
+        points_kernel: Points.Points = Points.Points()
+        points_kernel.addPoints(path)
+        vectors.append(points_kernel.Points)
+
+    shape: Part.Shape = Part.makeCompound([Part.makePolygon(path) for path in vectors if len(path) > 1])
+    return shape if len(shape.Vertexes) > 1 else Part.Shape()
