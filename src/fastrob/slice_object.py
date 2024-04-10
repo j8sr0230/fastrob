@@ -11,7 +11,6 @@ import awkward as ak
 import FreeCADGui as Gui
 import FreeCAD as App
 import Part
-import Points
 import Mesh
 
 if os.getcwd() not in sys.path:
@@ -117,15 +116,7 @@ class SliceObject:
                     feature_obj.Point = flat.to_list()[-1]
                     feature_obj.Shape = make_wires(simplified)
 
-            elif prop == "PointIndex" and layer_idx == -1:
-                clamped: ak.Array = clamp_path(self._paths, point_idx)
-                flat_clamped: ak.Array = ak.flatten(clamped)
-
-                feature_obj.Points = flat_clamped.to_list()
-                feature_obj.Point = flat_clamped.to_list()[-1]
-                feature_obj.Shape = make_wires(clamped)
-
-            elif prop == "PointIndex" and layer_idx > -1:
+            elif prop == "PointIndex":
                 clamped_layer_idx = max(0, min(layer_idx, len(self._paths) - 1))
                 layer: ak.Array = self._paths[clamped_layer_idx]
                 flat_layer: ak.Array = ak.flatten(layer)
