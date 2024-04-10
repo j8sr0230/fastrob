@@ -59,6 +59,14 @@ class SliceObject:
 
         self._paths: Optional[ak.Array] = None
 
+    def reset_properties(self, feature_obj: Part.Feature) -> None:
+        self._paths: Optional[ak.Array] = None
+        feature_obj.bLayerIndex = 0
+        feature_obj.cPointIndex = 0
+        feature_obj.aPoints = [(0, 0, 0)]
+        feature_obj.bPoint = (0, 0, 0)
+        feature_obj.Shape = Part.Shape()
+
     def execute(self, feature_obj: Part.Feature) -> None:
         if feature_obj.getPropertyByName("aMode") == "None":
             mesh: Mesh.Feature = feature_obj.getPropertyByName("aMesh")
@@ -89,19 +97,9 @@ class SliceObject:
                     feature_obj.bPoint = flat.to_list()[-1]
                     feature_obj.Shape = make_wires(simplified)
                 else:
-                    self._paths: Optional[ak.Array] = None
-                    feature_obj.bLayerIndex = 0
-                    feature_obj.cPointIndex = 0
-                    feature_obj.aPoints = [(0, 0, 0)]
-                    feature_obj.bPoint = (0, 0, 0)
-                    feature_obj.Shape = Part.Shape()
+                    self.reset_properties(feature_obj)
             else:
-                self._paths: Optional[ak.Array] = None
-                feature_obj.bLayerIndex = 0
-                feature_obj.cPointIndex = 0
-                feature_obj.aPoints = [(0, 0, 0)]
-                feature_obj.bPoint = (0, 0, 0)
-                feature_obj.Shape = Part.Shape()
+                self.reset_properties(feature_obj)
 
     # noinspection PyPep8Naming, PyMethodMayBeStatic, PyUnusedLocal
     def onChanged(self, feature_obj: Part.Feature, prop: str) -> None:
@@ -144,11 +142,7 @@ class SliceObject:
                 else:
                     pass
         else:
-            feature_obj.bLayerIndex = -1
-            feature_obj.cPointIndex = -1
-            feature_obj.aPoints = [(0, 0, 0)]
-            feature_obj.bPoints = (0, 0, 0)
-            feature_obj.Shape = Part.Shape()
+            self.reset_properties(feature_obj)
 
     def dumps(self) -> dict:
         return ak.to_json(self._paths)
