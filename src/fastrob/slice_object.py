@@ -23,38 +23,45 @@ from utils import slice_stl, parse_g_code, clamp_path, make_wires  # noqa
 
 class SliceObject:
     def __init__(self, feature_obj: Part.Feature, mesh: Mesh.Feature) -> None:
-        feature_obj.addProperty("App::PropertyLink", "Mesh", "Slicing", "Target mesh").Mesh = mesh
-        feature_obj.addProperty("App::PropertyLength", "Height", "Slicing", "Layer height of the slice").Height = 2.
-        feature_obj.addProperty("App::PropertyLength", "Width", "Slicing", "Width of the seams").Width = 6.
-        feature_obj.addProperty("App::PropertyInteger", "Perimeters", "Slicing", "Number of perimeters").Perimeters = 1
-        feature_obj.addProperty("App::PropertyEnumeration", "Pattern", "Slicing", "Pattern of the filling").Pattern = [
+        feature_obj.addProperty("App::PropertyLink", "aMesh", "Slicing", "Target mesh")
+        feature_obj.addProperty("App::PropertyLength", "bHeight", "Slicing", "Layer height of the slice")
+        feature_obj.addProperty("App::PropertyLength", "cWidth", "Slicing", "Width of the seams")
+        feature_obj.addProperty("App::PropertyInteger", "dPerimeters", "Slicing", "Number of perimeters")
+        feature_obj.addProperty("App::PropertyEnumeration", "ePattern", "Slicing", "Pattern of the filling")
+        feature_obj.addProperty("App::PropertyPercent", "fDensity", "Slicing", "Density of the filling")
+        feature_obj.addProperty("App::PropertyAngle", "gAngle", "Slicing", "Angle of the filling")
+        feature_obj.addProperty("App::PropertyLength", "hAnchor", "Slicing", "Anchor length of the filling")
+        feature_obj.addProperty("App::PropertyEnumeration", "aMode", "Filter", "Mode of the path filter")
+        feature_obj.addProperty("App::PropertyInteger", "bLayerIndex", "Filter", "Layer to be filtered")
+        feature_obj.addProperty("App::PropertyInteger", "cPointIndex", "Filter", "Position to be filtered")
+        feature_obj.addProperty("App::PropertyVectorList", "aPoints", "Result", "Points of the filtered result")
+        feature_obj.addProperty("App::PropertyVector", "bPoint", "Result", "Point belonging to the point index")
+
+        feature_obj.aMesh = mesh
+        feature_obj.bHeight = 2.
+        feature_obj.cWidth = 6.
+        feature_obj.dPerimeters = 1
+        feature_obj.ePattern = [
             "rectilinear", "alignedrectilinear", "grid", "triangles", "stars", "cubic", "line", "concentric",
             "honeycomb", "3dhoneycomb", "gyroid", "hilbertcurve", "archimedeanchords", "conspiratorial",
             "adaptivecubic", "supportcubic", "lightning"
         ]
-        feature_obj.addProperty("App::PropertyPercent", "Density", "Slicing", "Density of the filling").Density = 100
-        feature_obj.addProperty("App::PropertyAngle", "Angle", "Slicing", "Angle of the filling").Angle = 45.
-        feature_obj.addProperty("App::PropertyLength", "Anchor", "Slicing", "Anchor length of the filling").Anchor = 10.
-
-        feature_obj.addProperty("App::PropertyInteger", "LayerIndex", "Inspection", "Layer to be evaluated")
-        feature_obj.LayerIndex = -1
-        feature_obj.addProperty("App::PropertyInteger", "PointIndex", "Inspection", "Position to be evaluated")
-        feature_obj.PointIndex = -1
-
-        feature_obj.addProperty("App::PropertyVectorList", "Points", "Result", "Points of the paths")
-        feature_obj.Points = [(0, 0, 0)]
-        feature_obj.addProperty("App::PropertyVector", "Point", "Result", "Current point").Point = (0, 0, 0)
+        feature_obj.fDensity = 100
+        feature_obj.gAngle = 45.
+        feature_obj.hAnchor = 10.
+        feature_obj.aMode = ["None", "All", "Layer"]
+        feature_obj.bLayerIndex = 0
+        feature_obj.cPointIndex = 0
+        feature_obj.aPoints = [(0, 0, 0)]
+        feature_obj.bPoint = (0, 0, 0)
 
         feature_obj.Proxy = self
 
         self._paths: Optional[ak.Array] = None
 
     def execute(self, feature_obj: Part.Feature) -> None:
-        layer_idx: int = feature_obj.getPropertyByName("LayerIndex")
-        point_idx: int = feature_obj.getPropertyByName("PointIndex")
-
-        if layer_idx == -1 and point_idx == -1:
-            mesh: Mesh.Feature = feature_obj.getPropertyByName("Mesh")
+        if feature_obj.getPropertyByName("aMode") == "None":
+            mesh: Mesh.Feature = feature_obj.getPropertyByName("aMesh")
             if mesh is not None:
                 temp_path: str = os.path.join(App.getUserAppDataDir(), "fastrob", mesh.Name.lower())
                 Mesh.export([mesh], temp_path + ".stl")
@@ -62,10 +69,10 @@ class SliceObject:
                 # noinspection PyUnresolvedReferences
                 p: subprocess.CompletedProcess = slice_stl(
                     file=temp_path + ".stl",
-                    layer_height=float(feature_obj.Height), seam_width=float(feature_obj.Width),
-                    perimeters=int(feature_obj.Perimeters), fill_pattern=str(feature_obj.Pattern),
-                    fill_density=int(feature_obj.Density), infill_angle=float(feature_obj.Angle),
-                    infill_anchor_max=float(feature_obj.Anchor)
+                    layer_height=float(feature_obj.bHeight), seam_width=float(feature_obj.cWidth),
+                    perimeters=int(feature_obj.dPerimeters), fill_pattern=str(feature_obj.ePattern),
+                    fill_density=int(feature_obj.fDensity), infill_angle=float(feature_obj.gAngle),
+                    infill_anchor_max=float(feature_obj.hAnchor)
                 )
 
                 print(p.stdout)
@@ -76,47 +83,52 @@ class SliceObject:
                     simplified: ak.Array = ak.flatten(self._paths)
                     flat: ak.Array = ak.flatten(simplified)
 
-                    feature_obj.PointIndex = len(flat)
-                    feature_obj.Points = flat.to_list()
-                    feature_obj.Point = flat.to_list()[-1]
+                    feature_obj.bLayerIndex = len(self._paths)
+                    feature_obj.cPointIndex = len(flat)
+                    feature_obj.aPoints = flat.to_list()
+                    feature_obj.bPoint = flat.to_list()[-1]
                     feature_obj.Shape = make_wires(simplified)
                 else:
                     self._paths: Optional[ak.Array] = None
-                    feature_obj.Points = [(0, 0, 0)]
-                    feature_obj.Point = (0, 0, 0)
+                    feature_obj.bLayerIndex = 0
+                    feature_obj.cPointIndex = 0
+                    feature_obj.aPoints = [(0, 0, 0)]
+                    feature_obj.bPoint = (0, 0, 0)
                     feature_obj.Shape = Part.Shape()
             else:
                 self._paths: Optional[ak.Array] = None
-                feature_obj.Points = [(0, 0, 0)]
-                feature_obj.Point = (0, 0, 0)
+                feature_obj.bLayerIndex = 0
+                feature_obj.cPointIndex = 0
+                feature_obj.aPoints = [(0, 0, 0)]
+                feature_obj.bPoint = (0, 0, 0)
                 feature_obj.Shape = Part.Shape()
 
     # noinspection PyPep8Naming, PyMethodMayBeStatic, PyUnusedLocal
     def onChanged(self, feature_obj: Part.Feature, prop: str) -> None:
         if self._paths is not None:
-            layer_idx: int = feature_obj.getPropertyByName("LayerIndex")
-            point_idx: int = feature_obj.getPropertyByName("PointIndex")
+            layer_idx: int = feature_obj.getPropertyByName("bLayerIndex")
+            point_idx: int = feature_obj.getPropertyByName("cPointIndex")
 
-            if prop == "LayerIndex":
+            if prop == "bLayerIndex":
                 if layer_idx > -1:
                     clamped_idx = max(0, min(layer_idx, len(self._paths) - 1))
                     layer: ak.Array = self._paths[clamped_idx]
                     flat_layer: ak.Array = ak.flatten(layer)
 
-                    feature_obj.PointIndex = len(flat_layer) - 1
-                    feature_obj.Points = flat_layer.to_list()
-                    feature_obj.Point = flat_layer.to_list()[-1]
+                    feature_obj.cPointIndex = len(flat_layer) - 1
+                    feature_obj.aPoints = flat_layer.to_list()
+                    feature_obj.bPoint = flat_layer.to_list()[-1]
                     feature_obj.Shape = make_wires(layer)
                 else:
                     simplified: ak.Array = ak.flatten(self._paths)
                     flat: ak.Array = ak.flatten(simplified)
 
-                    feature_obj.PointIndex = len(flat)
-                    feature_obj.Points = flat.to_list()
-                    feature_obj.Point = flat.to_list()[-1]
+                    feature_obj.cPointIndex = len(flat)
+                    feature_obj.aPoints = flat.to_list()
+                    feature_obj.bPoint = flat.to_list()[-1]
                     feature_obj.Shape = make_wires(simplified)
 
-            elif prop == "PointIndex":
+            elif prop == "cPointIndex":
                 if layer_idx > -1:
                     clamped_layer_idx = max(0, min(layer_idx, len(self._paths) - 1))
                     layer: ak.Array = self._paths[clamped_layer_idx]
@@ -126,24 +138,16 @@ class SliceObject:
                     clamped: ak.Array = clamp_path(ak.Array([layer]), clamped_point_idx)
                     flat_clamped: ak.Array = ak.flatten(clamped)
 
-                    feature_obj.Points = flat_clamped.to_list()
-                    feature_obj.Point = flat_clamped.to_list()[-1]
+                    feature_obj.aPoints = flat_clamped.to_list()
+                    feature_obj.bPoint = flat_clamped.to_list()[-1]
                     feature_obj.Shape = make_wires(clamped)
                 else:
                     pass
-                    # feature_obj.LayerIndex = -1
-                    # simplified: ak.Array = ak.flatten(self._paths)
-                    # flat: ak.Array = ak.flatten(simplified)
-                    #
-                    # feature_obj.PointIndex = len(flat)
-                    # feature_obj.Points = flat.to_list()
-                    # feature_obj.Point = flat.to_list()[-1]
-                    # feature_obj.Shape = make_wires(simplified)
         else:
-            feature_obj.LayerIndex = -1
-            feature_obj.PointIndex = -1
-            feature_obj.Points = [(0, 0, 0)]
-            feature_obj.Points = (0, 0, 0)
+            feature_obj.bLayerIndex = -1
+            feature_obj.cPointIndex = -1
+            feature_obj.aPoints = [(0, 0, 0)]
+            feature_obj.bPoints = (0, 0, 0)
             feature_obj.Shape = Part.Shape()
 
     def dumps(self) -> dict:
