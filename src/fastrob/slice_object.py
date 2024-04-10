@@ -117,17 +117,28 @@ class SliceObject:
                     feature_obj.Shape = make_wires(simplified)
 
             elif prop == "PointIndex":
-                clamped_layer_idx = max(0, min(layer_idx, len(self._paths) - 1))
-                layer: ak.Array = self._paths[clamped_layer_idx]
-                flat_layer: ak.Array = ak.flatten(layer)
+                if layer_idx > -1:
+                    clamped_layer_idx = max(0, min(layer_idx, len(self._paths) - 1))
+                    layer: ak.Array = self._paths[clamped_layer_idx]
+                    flat_layer: ak.Array = ak.flatten(layer)
 
-                clamped_point_idx = max(0, min(point_idx, len(flat_layer) - 1))
-                clamped: ak.Array = clamp_path(ak.Array([layer]), clamped_point_idx)
-                flat_clamped: ak.Array = ak.flatten(clamped)
+                    clamped_point_idx = max(0, min(point_idx, len(flat_layer) - 1))
+                    clamped: ak.Array = clamp_path(ak.Array([layer]), clamped_point_idx)
+                    flat_clamped: ak.Array = ak.flatten(clamped)
 
-                feature_obj.Points = flat_clamped.to_list()
-                feature_obj.Point = flat_clamped.to_list()[-1]
-                feature_obj.Shape = make_wires(clamped)
+                    feature_obj.Points = flat_clamped.to_list()
+                    feature_obj.Point = flat_clamped.to_list()[-1]
+                    feature_obj.Shape = make_wires(clamped)
+                else:
+                    pass
+                    # feature_obj.LayerIndex = -1
+                    # simplified: ak.Array = ak.flatten(self._paths)
+                    # flat: ak.Array = ak.flatten(simplified)
+                    #
+                    # feature_obj.PointIndex = len(flat)
+                    # feature_obj.Points = flat.to_list()
+                    # feature_obj.Point = flat.to_list()[-1]
+                    # feature_obj.Shape = make_wires(simplified)
         else:
             feature_obj.LayerIndex = -1
             feature_obj.PointIndex = -1
