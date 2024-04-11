@@ -175,7 +175,7 @@ class SliceObject:
 
     # noinspection PyPep8Naming, PyMethodMayBeStatic, PyUnusedLocal
     def onChanged(self, feature_obj: Part.Feature, prop: str) -> None:
-        if prop == "bLayerIndex":
+        if prop == "bLayerIndex" or prop == "bPointIndex":
             self._feature_obj: Part.Feature = feature_obj
 
         elif prop == "cPointIndex" and self._paths is not None:
