@@ -88,14 +88,15 @@ class SliceObject:
 
                 if not p.stderr:
                     self._paths: Optional[ak.Array] = ak.Array(parse_g_code(file=temp_path + ".gcode"))
-                    simplified: ak.Array = ak.flatten(self._paths)
-                    flat: ak.Array = ak.flatten(simplified)
+                    if self._paths.layout.minmax_depth == (3, 3):
+                        simplified: ak.Array = ak.flatten(self._paths)
+                        flat: ak.Array = ak.flatten(simplified)
 
-                    feature_obj.bLayerIndex = len(self._paths)
-                    feature_obj.cPointIndex = len(flat)
-                    feature_obj.aPoints = flat.to_list()
-                    feature_obj.bPoint = flat.to_list()[-1]
-                    feature_obj.Shape = make_wires(simplified)
+                        feature_obj.aPoints = flat.to_list()
+                        feature_obj.bPoint = flat.to_list()[-1]
+                        feature_obj.Shape = make_wires(simplified)
+                    else:
+                        self.reset_properties(feature_obj)
                 else:
                     self.reset_properties(feature_obj)
             else:
@@ -103,46 +104,47 @@ class SliceObject:
 
     # noinspection PyPep8Naming, PyMethodMayBeStatic, PyUnusedLocal
     def onChanged(self, feature_obj: Part.Feature, prop: str) -> None:
-        if self._paths is not None:
-            layer_idx: int = feature_obj.getPropertyByName("bLayerIndex")
-            point_idx: int = feature_obj.getPropertyByName("cPointIndex")
+        if prop == "cPointIndex" and self._paths is not None:
+            if feature_obj.getPropertyByName("aMode") == "All":
+                point_idx: int = feature_obj.getPropertyByName("cPointIndex")
 
-            if prop == "bLayerIndex":
-                if layer_idx > -1:
-                    clamped_idx = max(0, min(layer_idx, len(self._paths) - 1))
-                    layer: ak.Array = self._paths[clamped_idx]
-                    flat_layer: ak.Array = ak.flatten(layer)
+                simplified: ak.Array = ak.flatten(self._paths)
+                flat: ak.Array = ak.flatten(simplified)
 
-                    feature_obj.cPointIndex = len(flat_layer) - 1
-                    feature_obj.aPoints = flat_layer.to_list()
-                    feature_obj.bPoint = flat_layer.to_list()[-1]
-                    feature_obj.Shape = make_wires(layer)
-                else:
-                    simplified: ak.Array = ak.flatten(self._paths)
-                    flat: ak.Array = ak.flatten(simplified)
+                clamped_point_idx = max(0, min(point_idx, len(flat) - 1))
+                clamped: ak.Array = clamp_path(self._paths, clamped_point_idx)
+                flat_clamped: ak.Array = ak.flatten(clamped)
 
-                    feature_obj.cPointIndex = len(flat)
-                    feature_obj.aPoints = flat.to_list()
-                    feature_obj.bPoint = flat.to_list()[-1]
-                    feature_obj.Shape = make_wires(simplified)
+                feature_obj.aPoints = flat_clamped.to_list()
+                feature_obj.bPoint = flat_clamped.to_list()[-1]
+                feature_obj.Shape = make_wires(clamped)
 
-            elif prop == "cPointIndex":
-                if layer_idx > -1:
-                    clamped_layer_idx = max(0, min(layer_idx, len(self._paths) - 1))
-                    layer: ak.Array = self._paths[clamped_layer_idx]
-                    flat_layer: ak.Array = ak.flatten(layer)
+            elif feature_obj.getPropertyByName("aMode") == "Layer":
+                layer_idx: int = feature_obj.getPropertyByName("bLayerIndex")
+                point_idx: int = feature_obj.getPropertyByName("cPointIndex")
 
-                    clamped_point_idx = max(0, min(point_idx, len(flat_layer) - 1))
-                    clamped: ak.Array = clamp_path(ak.Array([layer]), clamped_point_idx)
-                    flat_clamped: ak.Array = ak.flatten(clamped)
+                clamped_layer_idx = max(0, min(layer_idx, len(self._paths) - 1))
+                layer: ak.Array = self._paths[clamped_layer_idx]
+                flat_layer: ak.Array = ak.flatten(layer)
+                clamped_point_idx = max(0, min(point_idx, len(flat_layer) - 1))
+                clamped: ak.Array = clamp_path(ak.Array([layer]), clamped_point_idx)
+                flat_clamped: ak.Array = ak.flatten(clamped)
 
-                    feature_obj.aPoints = flat_clamped.to_list()
-                    feature_obj.bPoint = flat_clamped.to_list()[-1]
-                    feature_obj.Shape = make_wires(clamped)
-                else:
-                    pass
-        else:
-            self.reset_properties(feature_obj)
+                feature_obj.aPoints = flat_clamped.to_list()
+                feature_obj.bPoint = flat_clamped.to_list()[-1]
+                feature_obj.Shape = make_wires(clamped)
+
+        if prop == "bLayerIndex" and self._paths is not None:
+            if feature_obj.getPropertyByName("aMode") == "Layer":
+                layer_idx: int = feature_obj.getPropertyByName("bLayerIndex")
+
+                clamped_idx = max(0, min(layer_idx, len(self._paths) - 1))
+                layer: ak.Array = self._paths[clamped_idx]
+                flat_layer: ak.Array = ak.flatten(layer)
+
+                feature_obj.aPoints = flat_layer.to_list()
+                feature_obj.bPoint = flat_layer.to_list()[-1]
+                feature_obj.Shape = make_wires(layer)
 
     def dumps(self) -> dict:
         return ak.to_json(self._paths)
