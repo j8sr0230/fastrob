@@ -180,11 +180,11 @@ class SliceObject:
 
     # noinspection PyPep8Naming, PyMethodMayBeStatic, PyUnusedLocal
     def onChanged(self, feature_obj: Part.Feature, prop: str) -> None:
-        if prop == "bLayerIndex" or prop == "bPointIndex" and self._feature_obj is None:
+        if not hasattr(self, "_feature_obj"):
             self._feature_obj: Part.Feature = feature_obj
 
-        elif prop == "cPointIndex" and self._paths is not None:
-            if feature_obj.getPropertyByName("aMode") == "All":
+        if prop == "cPointIndex" and self._paths is not None:
+            if hasattr(feature_obj, "aMode") and feature_obj.getPropertyByName("aMode") == "All":
                 point_idx: int = feature_obj.getPropertyByName("cPointIndex")
 
                 simplified: ak.Array = ak.flatten(self._paths)
@@ -200,25 +200,26 @@ class SliceObject:
 
                 feature_obj.Shape = make_wires(clamped)
 
-            elif feature_obj.getPropertyByName("aMode") == "Layer":
-                layer_idx: int = feature_obj.getPropertyByName("bLayerIndex")
-                point_idx: int = feature_obj.getPropertyByName("cPointIndex")
+            if hasattr(feature_obj, "aMode") and feature_obj.getPropertyByName("aMode") == "Layer":
+                if hasattr(feature_obj, "bLayerIndex"):
+                    layer_idx: int = feature_obj.getPropertyByName("bLayerIndex")
+                    point_idx: int = feature_obj.getPropertyByName("cPointIndex")
 
-                clamped_layer_idx = max(0, min(layer_idx, len(self._paths) - 1))
-                layer: ak.Array = self._paths[clamped_layer_idx]
-                flat_layer: ak.Array = ak.flatten(layer)
-                clamped_point_idx = max(0, min(point_idx, len(flat_layer) - 1))
-                clamped: ak.Array = clamp_path(ak.Array([layer]), clamped_point_idx)
-                flat_clamped: ak.Array = ak.flatten(clamped)
+                    clamped_layer_idx = max(0, min(layer_idx, len(self._paths) - 1))
+                    layer: ak.Array = self._paths[clamped_layer_idx]
+                    flat_layer: ak.Array = ak.flatten(layer)
+                    clamped_point_idx = max(0, min(point_idx, len(flat_layer) - 1))
+                    clamped: ak.Array = clamp_path(ak.Array([layer]), clamped_point_idx)
+                    flat_clamped: ak.Array = ak.flatten(clamped)
 
-                if hasattr(feature_obj, "aPoints") and hasattr(feature_obj, "bPoint"):
-                    feature_obj.aPoints = flat_clamped.to_list()
-                    feature_obj.bPoint = flat_clamped.to_list()[-1]
+                    if hasattr(feature_obj, "aPoints") and hasattr(feature_obj, "bPoint"):
+                        feature_obj.aPoints = flat_clamped.to_list()
+                        feature_obj.bPoint = flat_clamped.to_list()[-1]
 
-                feature_obj.Shape = make_wires(clamped)
+                    feature_obj.Shape = make_wires(clamped)
 
         if prop == "bLayerIndex" and self._paths is not None:
-            if feature_obj.getPropertyByName("aMode") == "Layer":
+            if hasattr(feature_obj, "aMode") and feature_obj.getPropertyByName("aMode") == "Layer":
                 layer_idx: int = feature_obj.getPropertyByName("bLayerIndex")
 
                 clamped_idx = max(0, min(layer_idx, len(self._paths) - 1))
