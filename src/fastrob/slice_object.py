@@ -8,6 +8,9 @@ import importlib
 
 import awkward as ak
 
+import PySide2.QtCore as QtCore
+import PySide2.QtWidgets as QtWidgets
+
 import FreeCADGui as Gui
 import FreeCAD as App
 import Part
@@ -21,6 +24,39 @@ importlib.reload(utils)
 from utils import slice_stl, parse_g_code, clamp_path, make_wires  # noqa
 
 
+class ValueSlider(QtWidgets.QWidget):
+    def __init__(self, label: str, feature_obj: Part.Feature, prop: str, min_max: tuple[int, int],
+                 parent: QtWidgets.QWidget = None):
+        super().__init__(parent)
+
+        self.setWindowTitle("Value Slider")
+        self.setMinimumWidth(320)
+        self.setWindowFlag(QtCore.Qt.WindowStaysOnTopHint)
+        self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
+        self._horizontal_layout: QtWidgets.QVBoxLayout = QtWidgets.QHBoxLayout()
+        self.setLayout(self._horizontal_layout)
+
+        self._label: QtWidgets.QLabel = QtWidgets.QLabel(label)
+        self._horizontal_layout.addWidget(self._label)
+
+        self._slider: QtWidgets.QSlider = QtWidgets.QSlider(QtCore.Qt.Horizontal)
+        self._slider.setMinimum(min_max[0])
+        self._slider.setMaximum(min_max[1])
+        self._horizontal_layout.addWidget(self._slider)
+
+        self._info_label: QtWidgets.QLabel = QtWidgets.QLabel()
+        self._horizontal_layout.addWidget(self._info_label)
+
+        self._feature_obj: Part.Feature = feature_obj
+        self._prop: str = prop
+
+        cast(QtCore.SignalInstance, self._slider.valueChanged).connect(self.on_value_change)
+
+    def on_value_change(self) -> None:
+        setattr(self._feature_obj, self._prop, int(self._slider.value()))
+        self._info_label.setText(str(self._slider.value()))
+
+
 class SliceObject:
     def __init__(self, feature_obj: Part.Feature, mesh: Mesh.Feature) -> None:
         feature_obj.addProperty("App::PropertyLink", "aMesh", "Slicing", "Target mesh")
@@ -32,8 +68,12 @@ class SliceObject:
         feature_obj.addProperty("App::PropertyAngle", "gAngle", "Slicing", "Angle of the filling")
         feature_obj.addProperty("App::PropertyLength", "hAnchor", "Slicing", "Anchor length of the filling")
         feature_obj.addProperty("App::PropertyEnumeration", "aMode", "Filter", "Mode of the path filter")
+        # feature_obj.addProperty("App::PropertyInteger", "bLayerIndex", "Filter", "Layer to be filtered")
         feature_obj.addProperty("App::PropertyInteger", "bLayerIndex", "Filter", "Layer to be filtered")
+        feature_obj.setPropertyStatus("bLayerIndex", "UserEdit")
+        # feature_obj.addProperty("App::PropertyInteger", "cPointIndex", "Filter", "Position to be filtered")
         feature_obj.addProperty("App::PropertyInteger", "cPointIndex", "Filter", "Position to be filtered")
+        feature_obj.setPropertyStatus("cPointIndex", "UserEdit")
         feature_obj.addProperty("App::PropertyVectorList", "aPoints", "Result", "Points of the filtered result")
         feature_obj.addProperty("App::PropertyVector", "bPoint", "Result", "Point belonging to the point index")
 
@@ -56,7 +96,9 @@ class SliceObject:
         feature_obj.bPoint = (0, 0, 0)
 
         feature_obj.Proxy = self
+        self._feature_obj: Part.Feature = feature_obj
 
+        self._slider: Optional[ValueSlider] = None
         self._paths: Optional[ak.Array] = None
 
     def reset_properties(self, feature_obj: Part.Feature) -> None:
@@ -102,9 +144,41 @@ class SliceObject:
             else:
                 self.reset_properties(feature_obj)
 
+    # noinspection PyPep8Naming
+    def editProperty(self, prop: str) -> None:
+        if prop == "bLayerIndex" and self._paths is not None:
+            self._slider: ValueSlider = ValueSlider(
+                "Layer Index", self._feature_obj, prop, (0, len(self._paths) - 1)
+            )
+            self._slider.show()
+
+        elif prop == "cPointIndex" and self._paths is not None:
+            if self._feature_obj.getPropertyByName("aMode") == "All":
+                simplified: ak.Array = ak.flatten(self._paths)
+                flat: ak.Array = ak.flatten(simplified)
+
+                self._slider: ValueSlider = ValueSlider(
+                    "Point Index", self._feature_obj, prop, (0, len(flat) - 1)
+                )
+                self._slider.show()
+
+            elif self._feature_obj.getPropertyByName("aMode") == "Layer":
+                layer_idx: int = self._feature_obj.getPropertyByName("bLayerIndex")
+                clamped_layer_idx = max(0, min(layer_idx, len(self._paths) - 1))
+                layer: ak.Array = self._paths[clamped_layer_idx]
+                flat_layer: ak.Array = ak.flatten(layer)
+
+                self._slider: ValueSlider = ValueSlider(
+                    "Point Index", self._feature_obj, prop, (0, len(flat_layer) - 1)
+                )
+                self._slider.show()
+
     # noinspection PyPep8Naming, PyMethodMayBeStatic, PyUnusedLocal
     def onChanged(self, feature_obj: Part.Feature, prop: str) -> None:
-        if prop == "cPointIndex" and self._paths is not None:
+        if prop == "bLayerIndex":
+            self._feature_obj: Part.Feature = feature_obj
+
+        elif prop == "cPointIndex" and self._paths is not None:
             if feature_obj.getPropertyByName("aMode") == "All":
                 point_idx: int = feature_obj.getPropertyByName("cPointIndex")
 
