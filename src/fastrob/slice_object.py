@@ -26,7 +26,7 @@ from utils import slice_stl, parse_g_code, clamp_path, make_wires  # noqa
 
 class ValueSlider(QtWidgets.QWidget):
     def __init__(self, label: str, feature_obj: Part.Feature, prop: str, min_max: tuple[int, int],
-                 parent: QtWidgets.QWidget = None):
+                 value: int, parent: QtWidgets.QWidget = None):
         super().__init__(parent)
 
         self.setWindowTitle("Value Slider")
@@ -42,6 +42,7 @@ class ValueSlider(QtWidgets.QWidget):
         self._slider: QtWidgets.QSlider = QtWidgets.QSlider(QtCore.Qt.Horizontal)
         self._slider.setMinimum(min_max[0])
         self._slider.setMaximum(min_max[1])
+        self._slider.setValue(value)
         self._horizontal_layout.addWidget(self._slider)
 
         self._info_label: QtWidgets.QLabel = QtWidgets.QLabel()
@@ -103,10 +104,14 @@ class SliceObject:
 
     def reset_properties(self, feature_obj: Part.Feature) -> None:
         self._paths: Optional[ak.Array] = None
-        feature_obj.bLayerIndex = 0
-        feature_obj.cPointIndex = 0
-        feature_obj.aPoints = [(0, 0, 0)]
-        feature_obj.bPoint = (0, 0, 0)
+
+        if (hasattr(feature_obj, "bLayerIndex") and hasattr(feature_obj, "cPointIndex") and
+                hasattr(feature_obj, "aPoints") and hasattr(feature_obj, "bPoint")):
+            feature_obj.bLayerIndex = 0
+            feature_obj.cPointIndex = 0
+            feature_obj.aPoints = [(0, 0, 0)]
+            feature_obj.bPoint = (0, 0, 0)
+
         feature_obj.Shape = Part.Shape()
 
     def execute(self, feature_obj: Part.Feature) -> None:
@@ -147,9 +152,8 @@ class SliceObject:
     # noinspection PyPep8Naming
     def editProperty(self, prop: str) -> None:
         if prop == "bLayerIndex" and self._paths is not None:
-            self._slider: ValueSlider = ValueSlider(
-                "Layer Index", self._feature_obj, prop, (0, len(self._paths) - 1)
-            )
+            self._slider: ValueSlider = ValueSlider("Layer Index", self._feature_obj, prop, (0, len(self._paths) - 1),
+                                                    self._feature_obj.getPropertyByName("bLayerIndex"))
             self._slider.show()
 
         elif prop == "cPointIndex" and self._paths is not None:
@@ -157,9 +161,8 @@ class SliceObject:
                 simplified: ak.Array = ak.flatten(self._paths)
                 flat: ak.Array = ak.flatten(simplified)
 
-                self._slider: ValueSlider = ValueSlider(
-                    "Point Index", self._feature_obj, prop, (0, len(flat) - 1)
-                )
+                self._slider: ValueSlider = ValueSlider("Point Index", self._feature_obj, prop, (0, len(flat) - 1),
+                                                        self._feature_obj.getPropertyByName("cPointIndex"))
                 self._slider.show()
 
             elif self._feature_obj.getPropertyByName("aMode") == "Layer":
@@ -168,14 +171,14 @@ class SliceObject:
                 layer: ak.Array = self._paths[clamped_layer_idx]
                 flat_layer: ak.Array = ak.flatten(layer)
 
-                self._slider: ValueSlider = ValueSlider(
-                    "Point Index", self._feature_obj, prop, (0, len(flat_layer) - 1)
-                )
+                self._slider: ValueSlider = ValueSlider("Point Index", self._feature_obj, prop,
+                                                        (0, len(flat_layer) - 1),
+                                                        self._feature_obj.getPropertyByName("cPointIndex"))
                 self._slider.show()
 
     # noinspection PyPep8Naming, PyMethodMayBeStatic, PyUnusedLocal
     def onChanged(self, feature_obj: Part.Feature, prop: str) -> None:
-        if prop == "bLayerIndex" or prop == "bPointIndex":
+        if prop == "bLayerIndex" or prop == "bPointIndex" and self._feature_obj is None:
             self._feature_obj: Part.Feature = feature_obj
 
         elif prop == "cPointIndex" and self._paths is not None:
@@ -189,8 +192,10 @@ class SliceObject:
                 clamped: ak.Array = clamp_path(self._paths, clamped_point_idx)
                 flat_clamped: ak.Array = ak.flatten(clamped)
 
-                feature_obj.aPoints = flat_clamped.to_list()
-                feature_obj.bPoint = flat_clamped.to_list()[-1]
+                if hasattr(feature_obj, "aPoints") and hasattr(feature_obj, "bPoint"):
+                    feature_obj.aPoints = flat_clamped.to_list()
+                    feature_obj.bPoint = flat_clamped.to_list()[-1]
+
                 feature_obj.Shape = make_wires(clamped)
 
             elif feature_obj.getPropertyByName("aMode") == "Layer":
@@ -204,8 +209,10 @@ class SliceObject:
                 clamped: ak.Array = clamp_path(ak.Array([layer]), clamped_point_idx)
                 flat_clamped: ak.Array = ak.flatten(clamped)
 
-                feature_obj.aPoints = flat_clamped.to_list()
-                feature_obj.bPoint = flat_clamped.to_list()[-1]
+                if hasattr(feature_obj, "aPoints") and hasattr(feature_obj, "bPoint"):
+                    feature_obj.aPoints = flat_clamped.to_list()
+                    feature_obj.bPoint = flat_clamped.to_list()[-1]
+
                 feature_obj.Shape = make_wires(clamped)
 
         if prop == "bLayerIndex" and self._paths is not None:
@@ -216,8 +223,10 @@ class SliceObject:
                 layer: ak.Array = self._paths[clamped_idx]
                 flat_layer: ak.Array = ak.flatten(layer)
 
-                feature_obj.aPoints = flat_layer.to_list()
-                feature_obj.bPoint = flat_layer.to_list()[-1]
+                if hasattr(feature_obj, "aPoints") and hasattr(feature_obj, "bPoint"):
+                    feature_obj.aPoints = flat_layer.to_list()
+                    feature_obj.bPoint = flat_layer.to_list()[-1]
+
                 feature_obj.Shape = make_wires(layer)
 
     def dumps(self) -> dict:
