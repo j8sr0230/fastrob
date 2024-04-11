@@ -152,9 +152,11 @@ class SliceObject:
     # noinspection PyPep8Naming
     def editProperty(self, prop: str) -> None:
         if prop == "bLayerIndex" and self._paths is not None:
-            self._slider: ValueSlider = ValueSlider("Layer Index", self._feature_obj, prop, (0, len(self._paths) - 1),
-                                                    self._feature_obj.getPropertyByName("bLayerIndex"))
-            self._slider.show()
+            if self._feature_obj.getPropertyByName("aMode") in ("All", "Layer"):
+                self._slider: ValueSlider = ValueSlider("Layer Index", self._feature_obj, prop,
+                                                        (0, len(self._paths) - 1),
+                                                        self._feature_obj.getPropertyByName("bLayerIndex"))
+                self._slider.show()
 
         elif prop == "cPointIndex" and self._paths is not None:
             if self._feature_obj.getPropertyByName("aMode") == "All":
