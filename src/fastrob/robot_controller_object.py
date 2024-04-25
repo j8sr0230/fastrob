@@ -64,49 +64,57 @@ class RobotControllerObject:
         feature_obj.Proxy = self
         self._feature_obj: Part.Feature = feature_obj
 
-    @staticmethod
-    def _travel_grp(group: App.DocumentObjectGroup, first_items: Optional[list[App.Part]] = None) -> list[App.Part]:
-        if first_items is None:
-            first_items: list[App.Part] = []
+        self._axis_parts: Optional[list[App.Part]] = None
 
-        if len(group.Group) > 0 and type(group.Group[0]) is App.Part:
-            item: App.Part = cast(App.Part, group.Group[0])
-            first_items.append(item)
+    def flatten_parts(self, part: App.Part, result: Optional[list[App.Part]] = None) -> None:
+        if result is None:
+            result: list[App.Part] = []
+
+        if part.Name.startswith("A"):
+            result.append(part)
+
+        if hasattr(part, "Group") and len(part.getPropertyByName("Group")) > 0:
+            self.flatten_parts(part.Group[0], result)
 
     def execute(self, feature_obj: Part.Feature) -> None:
         pass
 
     # noinspection PyPep8Naming, PyMethodMayBeStatic, PyUnusedLocal
     def onChanged(self, feature_obj: Part.Feature, prop: str) -> None:
-        robot_grp: App.DocumentObjectGroup = cast(App.DocumentObjectGroup, feature_obj.getPropertyByName("aRobot"))
-
         if not hasattr(self, "_feature_obj"):
             self._feature_obj: Part.Feature = feature_obj
 
-        if (feature_obj.getPropertyByName("bMode") == "forward" and
-                prop in ("aA1", "bA2", "cA3", "dA4", "eA4", "fA5", "gA6")):
-            angle_rad: float = radians(feature_obj.getPropertyByName(prop))
-            cast(App.Part, robot_grp.Group[0]).Placement.Rotation.Angle = angle_rad
+            robot_grp: App.DocumentObjectGroup = cast(App.DocumentObjectGroup, feature_obj.getPropertyByName("aRobot"))
+            if len(robot_grp.Group) > 0 and type(robot_grp.Group[0]) is App.Part and not hasattr(self, "_axis_parts"):
+                self._axis_parts: list[App.Part] = []
+                self.flatten_parts(cast(App.Part, robot_grp.Group[0]), self._axis_parts)
 
-        if prop == "bA2" and feature_obj.getPropertyByName("bMode") == "forward":
-            a1_rad: float = radians(feature_obj.getPropertyByName("bA2"))
-            cast(App.Part, robot_grp.Group[0]).Placement.Rotation.Angle = a1_rad
+                print(self._axis_parts)
 
-        if prop == "aA1" and feature_obj.getPropertyByName("bMode") == "forward":
-            a1_rad: float = radians(feature_obj.getPropertyByName("aA1"))
-            cast(App.Part, robot_grp.Group[0]).Placement.Rotation.Angle = a1_rad
-
-        if prop == "aA1" and feature_obj.getPropertyByName("bMode") == "forward":
-            a1_rad: float = radians(feature_obj.getPropertyByName("aA1"))
-            cast(App.Part, robot_grp.Group[0]).Placement.Rotation.Angle = a1_rad
-
-        if prop == "aA1" and feature_obj.getPropertyByName("bMode") == "forward":
-            a1_rad: float = radians(feature_obj.getPropertyByName("aA1"))
-            cast(App.Part, robot_grp.Group[0]).Placement.Rotation.Angle = a1_rad
-
-        if prop == "aA1" and feature_obj.getPropertyByName("bMode") == "forward":
-            a1_rad: float = radians(feature_obj.getPropertyByName("aA1"))
-            cast(App.Part, robot_grp.Group[0]).Placement.Rotation.Angle = a1_rad
+        # if (feature_obj.getPropertyByName("bMode") == "forward" and
+        #         prop in ("aA1", "bA2", "cA3", "dA4", "eA4", "fA5", "gA6")):
+        #     angle_rad: float = radians(feature_obj.getPropertyByName(prop))
+        #     cast(App.Part, robot_grp.Group[0]).Placement.Rotation.Angle = angle_rad
+        #
+        # if prop == "bA2" and feature_obj.getPropertyByName("bMode") == "forward":
+        #     a1_rad: float = radians(feature_obj.getPropertyByName("bA2"))
+        #     cast(App.Part, robot_grp.Group[0]).Placement.Rotation.Angle = a1_rad
+        #
+        # if prop == "aA1" and feature_obj.getPropertyByName("bMode") == "forward":
+        #     a1_rad: float = radians(feature_obj.getPropertyByName("aA1"))
+        #     cast(App.Part, robot_grp.Group[0]).Placement.Rotation.Angle = a1_rad
+        #
+        # if prop == "aA1" and feature_obj.getPropertyByName("bMode") == "forward":
+        #     a1_rad: float = radians(feature_obj.getPropertyByName("aA1"))
+        #     cast(App.Part, robot_grp.Group[0]).Placement.Rotation.Angle = a1_rad
+        #
+        # if prop == "aA1" and feature_obj.getPropertyByName("bMode") == "forward":
+        #     a1_rad: float = radians(feature_obj.getPropertyByName("aA1"))
+        #     cast(App.Part, robot_grp.Group[0]).Placement.Rotation.Angle = a1_rad
+        #
+        # if prop == "aA1" and feature_obj.getPropertyByName("bMode") == "forward":
+        #     a1_rad: float = radians(feature_obj.getPropertyByName("aA1"))
+        #     cast(App.Part, robot_grp.Group[0]).Placement.Rotation.Angle = a1_rad
 
     # def dumps(self) -> dict:
     #     return dict()
