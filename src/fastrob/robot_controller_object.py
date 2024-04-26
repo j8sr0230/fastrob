@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import cast, Optional
+from typing import cast, Any, Iterator
 
 import importlib
 from math import radians
@@ -64,32 +64,36 @@ class RobotControllerObject:
         feature_obj.Proxy = self
         self._feature_obj: Part.Feature = feature_obj
 
-        self._axis_parts: Optional[list[App.Part]] = None
+        self._axis_parts: list[App.Part] = []
 
-    def flatten_parts(self, part: App.Part, result: Optional[list[App.Part]] = None) -> None:
-        if result is None:
-            result: list[App.Part] = []
+    def flatten_parts(self, part: App.Part) -> list[App.Part]:
+        result = [part]
+        stack = [part.Group]
 
-        if part.Name.startswith("A"):
-            result.append(part)
+        for item in stack.pop():
+            if hasattr(item, "Group") and len(item.Group) > 0:
+                result.append(item.Group[0])
+                stack.append(item.Group[0])
 
-        if hasattr(part, "Group") and len(part.getPropertyByName("Group")) > 0:
-            self.flatten_parts(part.Group[0], result)
+        return result
 
-    def execute(self, feature_obj: Part.Feature) -> None:
-        pass
+    # def execute(self, feature_obj: Part.Feature) -> None:
+    #     pass
 
     # noinspection PyPep8Naming, PyMethodMayBeStatic, PyUnusedLocal
     def onChanged(self, feature_obj: Part.Feature, prop: str) -> None:
         if not hasattr(self, "_feature_obj"):
             self._feature_obj: Part.Feature = feature_obj
 
+        if not hasattr(self, "_axis_parts"):
             robot_grp: App.DocumentObjectGroup = cast(App.DocumentObjectGroup, feature_obj.getPropertyByName("aRobot"))
-            if len(robot_grp.Group) > 0 and type(robot_grp.Group[0]) is App.Part and not hasattr(self, "_axis_parts"):
-                self._axis_parts: list[App.Part] = []
-                self.flatten_parts(cast(App.Part, robot_grp.Group[0]), self._axis_parts)
+            print(self.flatten_parts(cast(App.Part, robot_grp.Group[0])))
 
-                print(self._axis_parts)
+        # if prop in ("aA1", "bA2", "cA3", "dA4", "eA5", "fA6") and hasattr(self, "_axis_parts"):
+        #     idx: int = ["aA1", "bA2", "cA3", "dA4", "eA5", "fA6"].index(prop)
+        #     angle_rad: float = radians(feature_obj.getPropertyByName(prop))
+        #     print(self._axis_parts)
+            # self._axis_parts[idx].Placement.Rotation.Angle = angle_rad
 
         # if (feature_obj.getPropertyByName("bMode") == "forward" and
         #         prop in ("aA1", "bA2", "cA3", "dA4", "eA4", "fA5", "gA6")):
