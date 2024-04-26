@@ -66,19 +66,13 @@ class RobotControllerObject:
 
         self._axis_parts: list[App.Part] = []
 
-    def flatten_parts(self, part: App.Part) -> list[App.Part]:
-        result = [part]
-        stack = [part.Group]
+    def kinematic_chain_iterator(self, chain_item: App.Part) -> Iterator:
+        if chain_item.Label.startswith("A"):
+            yield chain_item
 
-        for item in stack.pop():
-            if hasattr(item, "Group") and len(item.Group) > 0:
-                result.append(item.Group[0])
-                stack.append(item.Group[0])
-
-        return result
-
-    # def execute(self, feature_obj: Part.Feature) -> None:
-    #     pass
+        if hasattr(chain_item, "Group") and len(chain_item.getPropertyByName("Group")) > 0:
+            for next_item in self.kinematic_chain_iterator(chain_item.Group[0]):
+                yield next_item
 
     # noinspection PyPep8Naming, PyMethodMayBeStatic, PyUnusedLocal
     def onChanged(self, feature_obj: Part.Feature, prop: str) -> None:
@@ -87,7 +81,8 @@ class RobotControllerObject:
 
         if not hasattr(self, "_axis_parts"):
             robot_grp: App.DocumentObjectGroup = cast(App.DocumentObjectGroup, feature_obj.getPropertyByName("aRobot"))
-            print(self.flatten_parts(cast(App.Part, robot_grp.Group[0])))
+            for item in self.kinematic_chain_iterator(cast(App.Part, robot_grp.Group[0])):
+                print(item.Label)
 
         # if prop in ("aA1", "bA2", "cA3", "dA4", "eA5", "fA6") and hasattr(self, "_axis_parts"):
         #     idx: int = ["aA1", "bA2", "cA3", "dA4", "eA5", "fA6"].index(prop)
