@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import cast, Any, Iterator
+from typing import cast, Optional, Iterator
 
 import importlib
 from math import radians
@@ -21,26 +21,8 @@ class RobotControllerObject:
         feature_obj.addProperty("App::PropertyAngle", "eA5", "Forward", "Angle in degree")
         feature_obj.addProperty("App::PropertyAngle", "fA6", "Forward", "Angle in degree")
 
-        # feature_obj.addProperty("App::PropertyLength", "bHeight", "Slicing", "Layer height of the slice")
-        # feature_obj.addProperty("App::PropertyLength", "cWidth", "Slicing", "Width of the seams")
-        # feature_obj.addProperty("App::PropertyInteger", "dPerimeters", "Slicing", "Number of perimeters")
-        # feature_obj.addProperty("App::PropertyEnumeration", "ePattern", "Slicing", "Pattern of the filling")
-        # feature_obj.addProperty("App::PropertyPercent", "fDensity", "Slicing", "Density of the filling")
-        # feature_obj.addProperty("App::PropertyAngle", "gAngle", "Slicing", "Angle of the filling")
-        # feature_obj.addProperty("App::PropertyLength", "hAnchor", "Slicing", "Anchor length of the filling")
-        # feature_obj.addProperty("App::PropertyEnumeration", "aMode", "Filter", "Mode of the path filter")
-        # # feature_obj.addProperty("App::PropertyInteger", "bLayerIndex", "Filter", "Layer to be filtered")
-        # feature_obj.addProperty("App::PropertyInteger", "bLayerIndex", "Filter", "Layer to be filtered")
-        # feature_obj.setPropertyStatus("bLayerIndex", "UserEdit")
-        # # feature_obj.addProperty("App::PropertyInteger", "cPointIndex", "Filter", "Position to be filtered")
-        # feature_obj.addProperty("App::PropertyInteger", "cPointIndex", "Filter", "Position to be filtered")
-        # feature_obj.setPropertyStatus("cPointIndex", "UserEdit")
-        # feature_obj.addProperty("App::PropertyVectorList", "aPoints", "Result", "Points of the filtered result")
-        # feature_obj.addProperty("App::PropertyVector", "bPoint", "Result", "Point belonging to the point index")
-
         feature_obj.aRobot = robot_grp
         feature_obj.bMode = ["forward", "inverse"]
-
         feature_obj.aA1 = 0.
         feature_obj.bA2 = 0.
         feature_obj.cA3 = 0.
@@ -48,23 +30,10 @@ class RobotControllerObject:
         feature_obj.eA5 = 0.
         feature_obj.fA6 = 0.
 
-        # feature_obj.bHeight = 2.
-        # feature_obj.cWidth = 6.
-        # feature_obj.dPerimeters = 1
-
-        # feature_obj.fDensity = 100
-        # feature_obj.gAngle = 45.
-        # feature_obj.hAnchor = 10.
-        # feature_obj.aMode = ["None", "All", "Layer"]
-        # feature_obj.bLayerIndex = 0
-        # feature_obj.cPointIndex = 0
-        # feature_obj.aPoints = [(0, 0, 0)]
-        # feature_obj.bPoint = (0, 0, 0)
-
         feature_obj.Proxy = self
         self._feature_obj: Part.Feature = feature_obj
 
-        self._axis_parts: list[App.Part] = []
+        self._axis_parts: list[App.Part] = list(self.kinematic_chain_iterator(cast(App.Part, robot_grp.Group[0])))
 
     def kinematic_chain_iterator(self, chain_item: App.Part) -> Iterator:
         if chain_item.Label.startswith("A"):
@@ -79,47 +48,20 @@ class RobotControllerObject:
         if not hasattr(self, "_feature_obj"):
             self._feature_obj: Part.Feature = feature_obj
 
-        if not hasattr(self, "_axis_parts"):
+        if not hasattr(self, "_axis_parts") and hasattr(self, "aRobot"):
             robot_grp: App.DocumentObjectGroup = cast(App.DocumentObjectGroup, feature_obj.getPropertyByName("aRobot"))
-            for item in self.kinematic_chain_iterator(cast(App.Part, robot_grp.Group[0])):
-                print(item.Label)
+            self._axis_parts: list[App.Part] = list(self.kinematic_chain_iterator(cast(App.Part, robot_grp.Group[0])))
 
-        # if prop in ("aA1", "bA2", "cA3", "dA4", "eA5", "fA6") and hasattr(self, "_axis_parts"):
-        #     idx: int = ["aA1", "bA2", "cA3", "dA4", "eA5", "fA6"].index(prop)
-        #     angle_rad: float = radians(feature_obj.getPropertyByName(prop))
-        #     print(self._axis_parts)
-            # self._axis_parts[idx].Placement.Rotation.Angle = angle_rad
+        if prop in ("aA1", "bA2", "cA3", "dA4", "eA5", "fA6"):
+            idx: int = ["aA1", "bA2", "cA3", "dA4", "eA5", "fA6"].index(prop)
+            angle_rad: float = radians(feature_obj.getPropertyByName(prop))
+            self._axis_parts[idx].Placement.Rotation.Angle = angle_rad
 
-        # if (feature_obj.getPropertyByName("bMode") == "forward" and
-        #         prop in ("aA1", "bA2", "cA3", "dA4", "eA4", "fA5", "gA6")):
-        #     angle_rad: float = radians(feature_obj.getPropertyByName(prop))
-        #     cast(App.Part, robot_grp.Group[0]).Placement.Rotation.Angle = angle_rad
-        #
-        # if prop == "bA2" and feature_obj.getPropertyByName("bMode") == "forward":
-        #     a1_rad: float = radians(feature_obj.getPropertyByName("bA2"))
-        #     cast(App.Part, robot_grp.Group[0]).Placement.Rotation.Angle = a1_rad
-        #
-        # if prop == "aA1" and feature_obj.getPropertyByName("bMode") == "forward":
-        #     a1_rad: float = radians(feature_obj.getPropertyByName("aA1"))
-        #     cast(App.Part, robot_grp.Group[0]).Placement.Rotation.Angle = a1_rad
-        #
-        # if prop == "aA1" and feature_obj.getPropertyByName("bMode") == "forward":
-        #     a1_rad: float = radians(feature_obj.getPropertyByName("aA1"))
-        #     cast(App.Part, robot_grp.Group[0]).Placement.Rotation.Angle = a1_rad
-        #
-        # if prop == "aA1" and feature_obj.getPropertyByName("bMode") == "forward":
-        #     a1_rad: float = radians(feature_obj.getPropertyByName("aA1"))
-        #     cast(App.Part, robot_grp.Group[0]).Placement.Rotation.Angle = a1_rad
-        #
-        # if prop == "aA1" and feature_obj.getPropertyByName("bMode") == "forward":
-        #     a1_rad: float = radians(feature_obj.getPropertyByName("aA1"))
-        #     cast(App.Part, robot_grp.Group[0]).Placement.Rotation.Angle = a1_rad
+    def dumps(self) -> dict:
+        return dict()
 
-    # def dumps(self) -> dict:
-    #     return dict()
-    #
-    # def loads(self, state: dict) -> None:
-    #     pass
+    def loads(self, state: dict) -> None:
+        pass
 
 
 if __name__ == "__main__":
