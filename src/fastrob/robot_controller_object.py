@@ -42,14 +42,6 @@ class RobotControllerObject:
         feature_obj.Proxy = self
         self._feature_obj: Part.Feature = feature_obj
 
-        # self._axis_parts: list[App.Part] = list(self.kinematic_part_iterator(cast(App.Part, robot_grp.Group[0])))
-        # self._axis_offset_rad: np.ndarray = np.array([
-        #     self._axis_parts[0].Placement.Rotation.Angle, self._axis_parts[1].Placement.Rotation.Angle,
-        #     self._axis_parts[2].Placement.Rotation.Angle, self._axis_parts[3].Placement.Rotation.Angle,
-        #     self._axis_parts[4].Placement.Rotation.Angle, self._axis_parts[5].Placement.Rotation.Angle
-        # ])
-        # self._chain: Optional[Chain] = self.build_ik_py_chain(self._axis_parts)
-
         self._axis_parts: Optional[list[App.Part]] = None
         self._axis_offset_rad: Optional[np.ndarray] = None
         self._chain: Optional[Chain] = None
@@ -91,10 +83,10 @@ class RobotControllerObject:
                 yield next_item
 
     def init_kinematics(self, chain_item: App.Part) -> None:
-        if hasattr(chain_item, "Group") and len(chain_item.getPropertyByName("Group")) > 0:
-            self._axis_parts: list[App.Part] = list(
-                self.kinematic_part_iterator(cast(App.Part, chain_item))
-            )
+        self._axis_parts: list[App.Part] = list(
+            self.kinematic_part_iterator(cast(App.Part, chain_item))
+        )
+        if len(self._axis_parts) == 7:
             self._axis_offset_rad: np.ndarray = np.array([
                 self._axis_parts[0].Placement.Rotation.Angle, self._axis_parts[1].Placement.Rotation.Angle,
                 self._axis_parts[2].Placement.Rotation.Angle, self._axis_parts[3].Placement.Rotation.Angle,
@@ -114,11 +106,13 @@ class RobotControllerObject:
 
         if hasattr(self, "_axis_parts") and hasattr(feature_obj, "aRobot") and self._axis_parts is None:
             robot_grp: App.DocumentObjectGroup = cast(App.DocumentObjectGroup, feature_obj.getPropertyByName("aRobot"))
-            self.init_kinematics(cast(App.Part, robot_grp.Group[0]))
+            if hasattr(robot_grp, "Group") and len(robot_grp.getPropertyByName("Group")) > 0:
+                self.init_kinematics(cast(App.Part, robot_grp.Group[0]))
 
         if prop == "aRobot":
             robot_grp: App.DocumentObjectGroup = cast(App.DocumentObjectGroup, feature_obj.getPropertyByName("aRobot"))
-            self.init_kinematics(cast(App.Part, robot_grp.Group[0]))
+            if hasattr(robot_grp, "Group") and len(robot_grp.getPropertyByName("Group")) > 0:
+                self.init_kinematics(cast(App.Part, robot_grp.Group[0]))
 
         if prop in self.AXIS_LABELS and self._axis_parts and len(self._axis_parts) == 7:
             if hasattr(feature_obj, "bMode") and feature_obj.getPropertyByName("bMode") == "Forward":
