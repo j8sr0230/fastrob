@@ -104,7 +104,7 @@ class RobotControllerObject:
             self._axis_parts: Optional[list[App.Part]] = None
             self._chain: Optional[Chain] = None
 
-        if hasattr(self, "_axis_parts") and hasattr(feature_obj, "aRobot") and self._axis_parts is None:
+        if hasattr(feature_obj, "aRobot") and self._axis_parts is None:
             robot_grp: App.DocumentObjectGroup = cast(App.DocumentObjectGroup, feature_obj.getPropertyByName("aRobot"))
             if hasattr(robot_grp, "Group") and len(robot_grp.getPropertyByName("Group")) > 0:
                 self.init_kinematics(cast(App.Part, robot_grp.Group[0]))
