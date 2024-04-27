@@ -2,10 +2,9 @@ from __future__ import annotations
 from typing import cast, Optional, Iterator
 
 import importlib
-from math import radians
+from math import radians, degrees
 
 import numpy as np
-import awkward as ak
 
 from ikpy.chain import Chain
 from ikpy.link import OriginLink, URDFLink
@@ -92,7 +91,12 @@ class RobotControllerObject:
                 self._axis_parts[2].Placement.Rotation.Angle, self._axis_parts[3].Placement.Rotation.Angle,
                 self._axis_parts[4].Placement.Rotation.Angle, self._axis_parts[5].Placement.Rotation.Angle
             ])
+
             self._chain: Optional[Chain] = self.kinematic_chain(self._axis_parts)
+
+            for idx, axis_prop in enumerate(self.AXIS_LABELS):
+                if hasattr(self._feature_obj, axis_prop):
+                    setattr(self._feature_obj, axis_prop, degrees(self._axis_parts[idx].Placement.Rotation.Angle))
 
     def execute(self, feature_obj: Part.Feature) -> None:
         print("Exec:", self, feature_obj)
@@ -125,12 +129,13 @@ class RobotControllerObject:
                 print(feature_obj.getPropertyByName("aPoint"))
 
     # noinspection PyMethodMayBeStatic
-    def dumps(self) -> str:
-        return ak.to_json(self._axis_offset_rad)
+    def dumps(self) -> Optional[str]:
+        return None  # ak.to_json(self._axis_offset_rad)
 
     def loads(self, state: dict) -> None:
-        axis_offset_rad_ak: ak.Array = ak.from_json(state)
-        self._axis_offset_rad: np.ndarray = axis_offset_rad_ak.to_numpy()
+        # axis_offset_rad_ak: ak.Array = ak.from_json(state)
+        # self._axis_offset_rad: np.ndarray = axis_offset_rad_ak.to_numpy()
+        pass
 
 
 if __name__ == "__main__":
