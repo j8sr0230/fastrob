@@ -45,23 +45,27 @@ class RobotControllerObject:
             for next_item in self.kinematic_chain_iterator(chain_item.Group[0]):
                 yield next_item
 
-    # noinspection PyPep8Naming, PyMethodMayBeStatic, PyUnusedLocal
+    # noinspection PyPep8Naming
     def onChanged(self, feature_obj: Part.Feature, prop: str) -> None:
         if not hasattr(self, "_feature_obj"):
             self._feature_obj: Part.Feature = feature_obj
             self._axis_parts: Optional[list[App.Part]] = None
 
-        if self._axis_parts is None and hasattr(feature_obj, "aRobot"):
+        if hasattr(self, "_axis_parts") and hasattr(feature_obj, "aRobot") and self._axis_parts is None:
             robot_grp: App.DocumentObjectGroup = cast(App.DocumentObjectGroup, feature_obj.getPropertyByName("aRobot"))
-            self._axis_parts: list[App.Part] = list(self.kinematic_chain_iterator(cast(App.Part, robot_grp.Group[0])))
+            if len(robot_grp.Group) > 0:
+                self._axis_parts: list[App.Part] = list(
+                    self.kinematic_chain_iterator(cast(App.Part, robot_grp.Group[0]))
+                )
 
-        if prop in self.AXIS_LABELS and self._axis_parts is not None:
+        if prop in self.AXIS_LABELS and self._axis_parts and len(self._axis_parts) == 6:
             idx: int = self.AXIS_LABELS.index(prop)
             angle_rad: float = radians(feature_obj.getPropertyByName(prop))
             self._axis_parts[idx].Placement.Rotation.Angle = angle_rad
 
-    def dumps(self) -> dict:
-        return dict()
+    # noinspection PyMethodMayBeStatic
+    def dumps(self) -> Optional[dict]:
+        return None
 
     def loads(self, state: dict) -> None:
         pass
@@ -77,7 +81,7 @@ if __name__ == "__main__":
             selection: App.DocumentObject = Gui.Selection.getSelection()[0]
             print("Selected object:", selection.Label)
 
-            if type(selection) == App.DocumentObjectGroup:
+            if type(selection) == App.DocumentObjectGroup and len(selection.getPropertyByName("Group")) > 0:
                 selection: App.DocumentObjectGroup = cast(App.DocumentObjectGroup, selection)
 
                 robot_ctrl_doc_obj: Part.Feature = cast(
@@ -86,7 +90,7 @@ if __name__ == "__main__":
                 RobotControllerObject(feature_obj=robot_ctrl_doc_obj, robot_grp=selection)
                 robot_ctrl_doc_obj.ViewObject.Proxy = 0
             else:
-                print("No group selected.")
+                print("No or empty group selected.")
         else:
             print("Nothing selected.")
     else:

@@ -178,7 +178,7 @@ class SliceObject:
                                                         self._feature_obj.getPropertyByName("cPointIndex"))
                 self._slider.show()
 
-    # noinspection PyPep8Naming, PyMethodMayBeStatic, PyUnusedLocal
+    # noinspection PyPep8Naming
     def onChanged(self, feature_obj: Part.Feature, prop: str) -> None:
         if not hasattr(self, "_feature_obj"):
             self._feature_obj: Part.Feature = feature_obj
