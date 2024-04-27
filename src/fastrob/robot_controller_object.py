@@ -19,12 +19,14 @@ class RobotControllerObject:
 
     def __init__(self, feature_obj: Part.Feature, robot_grp: App.DocumentObjectGroup) -> None:
         feature_obj.addProperty("App::PropertyLink", "aRobot", "Kinematic", "Robot kinematic")
+        feature_obj.addProperty("App::PropertyEnumeration", "bMode", "Kinematic", "Mode of the robot controller")
         feature_obj.addProperty("App::PropertyVector", "aPoint", "Inverse", "Inverse kinematics target point")
         feature_obj.addProperty("App::PropertyRotation", "bRotation", "Inverse", "Inverse kinematics target rotation")
         for axis_label in self.AXIS_LABELS:
             feature_obj.addProperty("App::PropertyAngle", axis_label, "Forward", "Target axis angle in degree")
 
         feature_obj.aRobot = robot_grp
+        feature_obj.bMode = ["Forward", "Inverse"]
         feature_obj.aPoint = (1000, 0, 1000)
         feature_obj.bRotation = App.Rotation(App.Vector(0, 1, 0), 90)
         for axis_label in self.AXIS_LABELS:
@@ -87,10 +89,16 @@ class RobotControllerObject:
                 if hasattr(self._feature_obj, axis_prop):
                     setattr(self._feature_obj, axis_prop, degrees(self._kinematic_parts[idx].Placement.Rotation.Angle))
 
-    def set_axis(self, axis_rad: np.ndarray = np.array([0, 0, 0, 0, 0, 0])) -> None:
+            if hasattr(self._feature_obj, "aPoint"):
+                self._feature_obj.aPoint = self._kinematic_parts[-1].getGlobalPlacement().Base
+
+    def set_axis(self, axis_rad: np.ndarray) -> None:
         for idx, axis_prop in enumerate(self.AXIS_LABELS):
             if hasattr(self._feature_obj, axis_prop) and hasattr(self, "_axis_offset_rad"):
-                setattr(self._feature_obj, axis_prop, degrees(axis_rad[idx] + self._axis_offset_rad[idx]))
+                if self._axis_offset_rad is not None:
+                    # noinspection PyPep8Naming
+                    self._kinematic_parts[idx].Placement.Rotation.Angle = (axis_rad[idx] +
+                                                                           self._axis_offset_rad[idx])
 
     def reset_axis(self) -> None:
         if hasattr(self, "_axis_offset_rad"):
@@ -131,21 +139,27 @@ class RobotControllerObject:
                 self.init_kinematics(cast(App.Part, robot_grp.Group[0]))
 
         if prop in self.AXIS_LABELS and self._kinematic_parts and len(self._kinematic_parts) == 7:
-            idx: int = self.AXIS_LABELS.index(prop)
-            angle_rad: float = radians(feature_obj.getPropertyByName(prop))
-            self._kinematic_parts[idx].Placement.Rotation.Angle = angle_rad
+            if hasattr(feature_obj, "bMode") and feature_obj.getPropertyByName("bMode") == "Forward":
+                idx: int = self.AXIS_LABELS.index(prop)
+                angle_rad: float = radians(feature_obj.getPropertyByName(prop))
+                self._kinematic_parts[idx].Placement.Rotation.Angle = angle_rad
 
-            # if hasattr(feature_obj, "aPoint"):
-            #     feature_obj.aPoint = self._kinematic_parts[-1].Placement.Base
+                if hasattr(feature_obj, "aPoint"):
+                    feature_obj.aPoint = self._kinematic_parts[-1].getGlobalPlacement().Base
 
-        if prop == "aPoint" and hasattr(feature_obj, "bRotation"):
-            rot_matrix: App.Matrix = feature_obj.bRotation.toMatrix()
-            rot_matrix_np: np.ndarray = np.array([
-                [rot_matrix.A11, rot_matrix.A12, rot_matrix.A13],
-                [rot_matrix.A21, rot_matrix.A22, rot_matrix.A23],
-                [rot_matrix.A31, rot_matrix.A32, rot_matrix.A33]
-            ])
-            self.move_to(np.array(feature_obj.getPropertyByName("aPoint")), rot_matrix_np)
+        if prop in ("aPoint", "bRotation") and hasattr(feature_obj, "aPoint") and hasattr(feature_obj, "bRotation"):
+            if hasattr(feature_obj, "bMode") and feature_obj.getPropertyByName("bMode") == "Inverse":
+                rot_matrix: App.Matrix = feature_obj.bRotation.toMatrix()
+                rot_matrix_np: np.ndarray = np.array([
+                    [rot_matrix.A11, rot_matrix.A12, rot_matrix.A13],
+                    [rot_matrix.A21, rot_matrix.A22, rot_matrix.A23],
+                    [rot_matrix.A31, rot_matrix.A32, rot_matrix.A33]
+                ])
+                angle_rad: np.ndarray = self.move_to(np.array(feature_obj.getPropertyByName("aPoint")), rot_matrix_np)
+
+                for idx, axis_prop in enumerate(self.AXIS_LABELS):
+                    if hasattr(feature_obj, axis_prop) and self._axis_offset_rad:
+                        setattr(feature_obj, axis_prop, degrees(angle_rad[idx] + self._axis_offset_rad[idx]))
 
     # noinspection PyMethodMayBeStatic
     def dumps(self) -> Optional[str]:
