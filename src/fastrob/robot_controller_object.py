@@ -10,6 +10,8 @@ import Part
 
 
 class RobotControllerObject:
+    AXIS_LABELS: list[str] = ["aA1", "bA2", "cA3", "dA4", "eA5", "fA6"]
+
     def __init__(self, feature_obj: Part.Feature, robot_grp: App.DocumentObjectGroup) -> None:
         feature_obj.addProperty("App::PropertyLink", "aRobot", "Kinematic", "Robot kinematic")
         feature_obj.addProperty("App::PropertyEnumeration", "bMode", "Kinematic", "Mode of the robot controller")
@@ -47,13 +49,14 @@ class RobotControllerObject:
     def onChanged(self, feature_obj: Part.Feature, prop: str) -> None:
         if not hasattr(self, "_feature_obj"):
             self._feature_obj: Part.Feature = feature_obj
+            self._axis_parts: Optional[list[App.Part]] = None
 
-        if not hasattr(self, "_axis_parts") and hasattr(self, "aRobot"):
+        if self._axis_parts is None and hasattr(feature_obj, "aRobot"):
             robot_grp: App.DocumentObjectGroup = cast(App.DocumentObjectGroup, feature_obj.getPropertyByName("aRobot"))
             self._axis_parts: list[App.Part] = list(self.kinematic_chain_iterator(cast(App.Part, robot_grp.Group[0])))
 
-        if prop in ("aA1", "bA2", "cA3", "dA4", "eA5", "fA6"):
-            idx: int = ["aA1", "bA2", "cA3", "dA4", "eA5", "fA6"].index(prop)
+        if prop in self.AXIS_LABELS and self._axis_parts is not None:
+            idx: int = self.AXIS_LABELS.index(prop)
             angle_rad: float = radians(feature_obj.getPropertyByName(prop))
             self._axis_parts[idx].Placement.Rotation.Angle = angle_rad
 
