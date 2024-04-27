@@ -24,7 +24,7 @@ class RobotControllerObject:
         feature_obj.addProperty("App::PropertyAngle", "fA6", "Forward", "Angle in degree")
 
         feature_obj.aRobot = robot_grp
-        feature_obj.bMode = ["forward", "inverse"]
+        feature_obj.bMode = ["Forward", "Inverse"]
         feature_obj.aA1 = 0.
         feature_obj.bA2 = 0.
         feature_obj.cA3 = 0.
@@ -59,9 +59,10 @@ class RobotControllerObject:
                 )
 
         if prop in self.AXIS_LABELS and self._axis_parts and len(self._axis_parts) == 6:
-            idx: int = self.AXIS_LABELS.index(prop)
-            angle_rad: float = radians(feature_obj.getPropertyByName(prop))
-            self._axis_parts[idx].Placement.Rotation.Angle = angle_rad
+            if hasattr(feature_obj, "bMode") and feature_obj.getPropertyByName("bMode") == "Forward":
+                idx: int = self.AXIS_LABELS.index(prop)
+                angle_rad: float = radians(feature_obj.getPropertyByName(prop))
+                self._axis_parts[idx].Placement.Rotation.Angle = angle_rad
 
     # noinspection PyMethodMayBeStatic
     def dumps(self) -> Optional[dict]:
