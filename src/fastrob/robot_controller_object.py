@@ -42,16 +42,21 @@ class RobotControllerObject:
         feature_obj.Proxy = self
         self._feature_obj: Part.Feature = feature_obj
 
-        self._axis_parts: list[App.Part] = list(self.kinematic_part_iterator(cast(App.Part, robot_grp.Group[0])))
-        self._axis_offset_rad: np.ndarray = np.array([
-            self._axis_parts[0].Placement.Rotation.Angle, self._axis_parts[1].Placement.Rotation.Angle,
-            self._axis_parts[2].Placement.Rotation.Angle, self._axis_parts[3].Placement.Rotation.Angle,
-            self._axis_parts[4].Placement.Rotation.Angle, self._axis_parts[5].Placement.Rotation.Angle
-        ])
-        self._chain: Optional[Chain] = self.build_ik_py_chain(self._axis_parts)
+        # self._axis_parts: list[App.Part] = list(self.kinematic_part_iterator(cast(App.Part, robot_grp.Group[0])))
+        # self._axis_offset_rad: np.ndarray = np.array([
+        #     self._axis_parts[0].Placement.Rotation.Angle, self._axis_parts[1].Placement.Rotation.Angle,
+        #     self._axis_parts[2].Placement.Rotation.Angle, self._axis_parts[3].Placement.Rotation.Angle,
+        #     self._axis_parts[4].Placement.Rotation.Angle, self._axis_parts[5].Placement.Rotation.Angle
+        # ])
+        # self._chain: Optional[Chain] = self.build_ik_py_chain(self._axis_parts)
+
+        self._axis_parts: Optional[list[App.Part]] = None
+        self._axis_offset_rad: Optional[np.ndarray] = None
+        self._chain: Optional[Chain] = None
+        self.init_kinematics(cast(App.Part, robot_grp.Group[0]))
 
     @staticmethod
-    def build_ik_py_chain(axis_parts: list[App.Part]) -> Chain:
+    def kinematic_chain(axis_parts: list[App.Part]) -> Chain:
         return Chain(name="robot", links=[
             OriginLink(),
             URDFLink(name="A1", origin_translation=np.array(axis_parts[0].Placement.Base),
@@ -77,25 +82,25 @@ class RobotControllerObject:
                      rotation=np.array([1, 0, 0]))
         ], active_links_mask=[False, True, True, True, True, True, True, False])
 
-    def kinematic_part_iterator(self, chain_item: App.Part) -> Iterator:
-        if chain_item.Label.startswith("A") or chain_item.Label.startswith("TCP"):
-            yield chain_item
+    def kinematic_part_iterator(self, kinematic_part: App.Part) -> Iterator:
+        if kinematic_part.Label.startswith("A") or kinematic_part.Label.startswith("TCP"):
+            yield kinematic_part
 
-        if hasattr(chain_item, "Group") and len(chain_item.getPropertyByName("Group")) > 0:
-            for next_item in self.kinematic_part_iterator(chain_item.Group[0]):
+        if hasattr(kinematic_part, "Group") and len(kinematic_part.getPropertyByName("Group")) > 0:
+            for next_item in self.kinematic_part_iterator(kinematic_part.Group[0]):
                 yield next_item
 
     def init_kinematics(self, chain_item: App.Part) -> None:
         if hasattr(chain_item, "Group") and len(chain_item.getPropertyByName("Group")) > 0:
             self._axis_parts: list[App.Part] = list(
-                self.kinematic_part_iterator(cast(App.Part, chain_item.Group[0]))
+                self.kinematic_part_iterator(cast(App.Part, chain_item))
             )
             self._axis_offset_rad: np.ndarray = np.array([
                 self._axis_parts[0].Placement.Rotation.Angle, self._axis_parts[1].Placement.Rotation.Angle,
                 self._axis_parts[2].Placement.Rotation.Angle, self._axis_parts[3].Placement.Rotation.Angle,
                 self._axis_parts[4].Placement.Rotation.Angle, self._axis_parts[5].Placement.Rotation.Angle
             ])
-            self._chain: Optional[Chain] = self.build_ik_py_chain(self._axis_parts)
+            self._chain: Optional[Chain] = self.kinematic_chain(self._axis_parts)
 
     def execute(self, feature_obj: Part.Feature) -> None:
         print("Exec:", self, feature_obj)
@@ -109,29 +114,11 @@ class RobotControllerObject:
 
         if hasattr(self, "_axis_parts") and hasattr(feature_obj, "aRobot") and self._axis_parts is None:
             robot_grp: App.DocumentObjectGroup = cast(App.DocumentObjectGroup, feature_obj.getPropertyByName("aRobot"))
-            if len(robot_grp.Group) > 0:
-                self._axis_parts: list[App.Part] = list(
-                    self.kinematic_part_iterator(cast(App.Part, robot_grp.Group[0]))
-                )
-                self._axis_offset_rad: np.ndarray = np.array([
-                    self._axis_parts[0].Placement.Rotation.Angle, self._axis_parts[1].Placement.Rotation.Angle,
-                    self._axis_parts[2].Placement.Rotation.Angle, self._axis_parts[3].Placement.Rotation.Angle,
-                    self._axis_parts[4].Placement.Rotation.Angle, self._axis_parts[5].Placement.Rotation.Angle
-                ])
-                self._chain: Optional[Chain] = self.build_ik_py_chain(self._axis_parts)
+            self.init_kinematics(cast(App.Part, robot_grp.Group[0]))
 
         if prop == "aRobot":
             robot_grp: App.DocumentObjectGroup = cast(App.DocumentObjectGroup, feature_obj.getPropertyByName("aRobot"))
-            if hasattr(robot_grp, "Group") and len(robot_grp.Group) > 0:
-                self._axis_parts: list[App.Part] = list(
-                    self.kinematic_part_iterator(cast(App.Part, robot_grp.Group[0]))
-                )
-                self._axis_offset_rad: np.ndarray = np.array([
-                    self._axis_parts[0].Placement.Rotation.Angle, self._axis_parts[1].Placement.Rotation.Angle,
-                    self._axis_parts[2].Placement.Rotation.Angle, self._axis_parts[3].Placement.Rotation.Angle,
-                    self._axis_parts[4].Placement.Rotation.Angle, self._axis_parts[5].Placement.Rotation.Angle
-                ])
-                self._chain: Optional[Chain] = self.build_ik_py_chain(self._axis_parts)
+            self.init_kinematics(cast(App.Part, robot_grp.Group[0]))
 
         if prop in self.AXIS_LABELS and self._axis_parts and len(self._axis_parts) == 7:
             if hasattr(feature_obj, "bMode") and feature_obj.getPropertyByName("bMode") == "Forward":
