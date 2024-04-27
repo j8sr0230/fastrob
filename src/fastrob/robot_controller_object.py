@@ -74,9 +74,8 @@ class RobotControllerObject:
                 yield next_item
 
     def init_kinematics(self, kinematic_part: App.Part) -> None:
-        self._kinematic_parts: list[App.Part] = list(
-            self.kinematic_part_iterator(cast(App.Part, kinematic_part))
-        )
+        self._kinematic_parts: list[App.Part] = list(self.kinematic_part_iterator(cast(App.Part, kinematic_part)))
+
         if len(self._kinematic_parts) == 7:
             self._axis_offset_rad: np.ndarray = np.array(
                 [self._kinematic_parts[i].Placement.Rotation.Angle for i in range(6)]
@@ -94,7 +93,7 @@ class RobotControllerObject:
                 setattr(self._feature_obj, axis_prop, degrees(axis_rad[idx] + self._axis_offset_rad[idx]))
 
     def reset_axis(self) -> None:
-        if self._axis_offset_rad:
+        if hasattr(self, "_axis_offset_rad"):
             self.set_axis(-self._axis_offset_rad)
 
     def move_to(self, target_pos: np.ndarray, target_rot: np.ndarray) -> np.ndarray:
@@ -118,6 +117,7 @@ class RobotControllerObject:
         if not hasattr(self, "_feature_obj"):
             self._feature_obj: Part.Feature = feature_obj
             self._kinematic_parts: Optional[list[App.Part]] = None
+            self._axis_offset_rad: Optional[np.ndarray] = None
             self._chain: Optional[Chain] = None
 
         if hasattr(feature_obj, "aRobot") and self._kinematic_parts is None:
@@ -139,11 +139,11 @@ class RobotControllerObject:
             #     feature_obj.aPoint = self._kinematic_parts[-1].Placement.Base
 
         if prop == "aPoint" and hasattr(feature_obj, "bRotation"):
-            r: App.Matrix = feature_obj.bRotation.toMatrix()
+            rot_matrix: App.Matrix = feature_obj.bRotation.toMatrix()
             rot_matrix_np: np.ndarray = np.array([
-                [r.A11, r.A12, r.A13],
-                [r.A21, r.A22, r.A23],
-                [r.A31, r.A32, r.A33]
+                [rot_matrix.A11, rot_matrix.A12, rot_matrix.A13],
+                [rot_matrix.A21, rot_matrix.A22, rot_matrix.A23],
+                [rot_matrix.A31, rot_matrix.A32, rot_matrix.A33]
             ])
             self.move_to(np.array(feature_obj.getPropertyByName("aPoint")), rot_matrix_np)
 
