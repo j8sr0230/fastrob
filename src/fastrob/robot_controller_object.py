@@ -93,15 +93,16 @@ class RobotControllerObject:
                 self._feature_obj.aPoint = self._kinematic_parts[-1].getGlobalPlacement().Base
 
     def set_axis(self, axis_rad: np.ndarray) -> None:
-        for idx, axis_prop in enumerate(self.AXIS_LABELS):
-            if hasattr(self._feature_obj, axis_prop) and hasattr(self, "_axis_offset_rad"):
-                if self._axis_offset_rad is not None:
-                    # noinspection PyPep8Naming
-                    self._kinematic_parts[idx].Placement.Rotation.Angle = (axis_rad[idx] +
-                                                                           self._axis_offset_rad[idx])
+        if (hasattr(self, "_kinematic_parts") and type(self._kinematic_parts) is list
+                and len(self._kinematic_parts) == 7 and hasattr(self, "_axis_offset_rad")
+                and type(self._axis_offset_rad) is np.ndarray):
+
+            for i in range(6):
+                # noinspection PyPep8Naming
+                self._kinematic_parts[i].Placement.Rotation.Angle = (axis_rad[i] + self._axis_offset_rad[i])
 
     def reset_axis(self) -> None:
-        if hasattr(self, "_axis_offset_rad"):
+        if hasattr(self, "_axis_offset_rad") and type(self._axis_offset_rad) is np.ndarray:
             self.set_axis(-self._axis_offset_rad)
 
     def move_to(self, target_pos: np.ndarray, target_rot: np.ndarray) -> np.ndarray:
@@ -117,8 +118,8 @@ class RobotControllerObject:
         self.set_axis(target_axis_rad)
         return target_axis_rad
 
-    def execute(self, feature_obj: Part.Feature) -> None:
-        print("Exec:", self, feature_obj)
+    # def execute(self, feature_obj: Part.Feature) -> None:
+    #     print("Exec:", self, feature_obj)
 
     # noinspection PyPep8Naming
     def onChanged(self, feature_obj: Part.Feature, prop: str) -> None:
@@ -138,7 +139,7 @@ class RobotControllerObject:
             if hasattr(robot_grp, "Group") and len(robot_grp.getPropertyByName("Group")) > 0:
                 self.init_kinematics(cast(App.Part, robot_grp.Group[0]))
 
-        if prop in self.AXIS_LABELS and self._kinematic_parts and len(self._kinematic_parts) == 7:
+        if prop in self.AXIS_LABELS and type(self._kinematic_parts) is list and len(self._kinematic_parts) == 7:
             if hasattr(feature_obj, "bMode") and feature_obj.getPropertyByName("bMode") == "Forward":
                 idx: int = self.AXIS_LABELS.index(prop)
                 angle_rad: float = radians(feature_obj.getPropertyByName(prop))
@@ -158,7 +159,7 @@ class RobotControllerObject:
                 angle_rad: np.ndarray = self.move_to(np.array(feature_obj.getPropertyByName("aPoint")), rot_matrix_np)
 
                 for idx, axis_prop in enumerate(self.AXIS_LABELS):
-                    if hasattr(feature_obj, axis_prop) and self._axis_offset_rad:
+                    if hasattr(feature_obj, axis_prop) and type(self._axis_offset_rad) is np.ndarray:
                         setattr(feature_obj, axis_prop, degrees(angle_rad[idx] + self._axis_offset_rad[idx]))
 
     # noinspection PyMethodMayBeStatic
