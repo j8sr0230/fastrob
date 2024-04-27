@@ -14,7 +14,7 @@ import FreeCAD as App
 
 if os.getcwd() not in sys.path:
     sys.path.append(os.getcwd())
-from robot_controller import RobotController
+from src.fastrob.old.robot_controller import RobotController
 
 
 class VarProxyClient(QtWidgets.QWidget):
