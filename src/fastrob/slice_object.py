@@ -218,6 +218,8 @@ class SliceObject:
 
                     feature_obj.Shape = make_wires(clamped)
 
+            App.ActiveDocument.recompute()
+
         if prop == "bLayerIndex" and self._paths is not None:
             if hasattr(feature_obj, "aMode") and feature_obj.getPropertyByName("aMode") == "Layer":
                 layer_idx: int = feature_obj.getPropertyByName("bLayerIndex")
@@ -231,6 +233,8 @@ class SliceObject:
                     feature_obj.bPoint = flat_layer.to_list()[-1]
 
                 feature_obj.Shape = make_wires(layer)
+
+            App.ActiveDocument.recompute()
 
     def dumps(self) -> dict:
         return ak.to_json(self._paths)
