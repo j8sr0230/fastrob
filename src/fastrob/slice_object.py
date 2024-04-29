@@ -75,8 +75,11 @@ class SliceObject:
         # feature_obj.addProperty("App::PropertyInteger", "cPointIndex", "Filter", "Position to be filtered")
         feature_obj.addProperty("App::PropertyInteger", "cPointIndex", "Filter", "Position to be filtered")
         feature_obj.setPropertyStatus("cPointIndex", "UserEdit")
-        feature_obj.addProperty("App::PropertyVectorList", "aPoints", "Result", "Points of the filtered result")
-        feature_obj.addProperty("App::PropertyVector", "bPoint", "Result", "Point belonging to the point index")
+        feature_obj.addProperty("App::PropertyVectorList", "aLocalPoints", "Result", "Points of the filtered layer(s)")
+        feature_obj.addProperty("App::PropertyVector", "bLocalPoint", "Result", "Point of the filtered point index")
+        feature_obj.addProperty(
+            "App::PropertyVector", "cGlobalPoint", "Result", "Point of the filtered point index in global coordinates"
+        )
 
         feature_obj.aMesh = mesh
         feature_obj.bHeight = 2.
@@ -93,8 +96,9 @@ class SliceObject:
         feature_obj.aMode = ["None", "All", "Layer"]
         feature_obj.bLayerIndex = 0
         feature_obj.cPointIndex = 0
-        feature_obj.aPoints = [(0, 0, 0)]
-        feature_obj.bPoint = (0, 0, 0)
+        feature_obj.aLocalPoints = [(0, 0, 0)]
+        feature_obj.bLocalPoint = (0, 0, 0)
+        feature_obj.cGlobalPoint = (0, 0, 0)
 
         feature_obj.Proxy = self
         self._feature_obj: Part.Feature = feature_obj
@@ -106,11 +110,12 @@ class SliceObject:
         self._paths: Optional[ak.Array] = None
 
         if (hasattr(feature_obj, "bLayerIndex") and hasattr(feature_obj, "cPointIndex") and
-                hasattr(feature_obj, "aPoints") and hasattr(feature_obj, "bPoint")):
+                hasattr(feature_obj, "aLocalPoints") and hasattr(feature_obj, "bLocalPoint")):
             feature_obj.bLayerIndex = 0
             feature_obj.cPointIndex = 0
-            feature_obj.aPoints = [(0, 0, 0)]
-            feature_obj.bPoint = (0, 0, 0)
+            feature_obj.aLocalPoints = [(0, 0, 0)]
+            feature_obj.bLocalPoint = (0, 0, 0)
+            feature_obj.cGlobalPoint = (0, 0, 0)
 
         feature_obj.Shape = Part.Shape()
 
@@ -139,8 +144,10 @@ class SliceObject:
                         simplified: ak.Array = ak.flatten(self._paths)
                         flat: ak.Array = ak.flatten(simplified)
 
-                        feature_obj.aPoints = flat.to_list()
-                        feature_obj.bPoint = flat.to_list()[-1]
+                        feature_obj.aLocalPoints = flat.to_list()
+                        feature_obj.bLocalPoint = flat.to_list()[-1]
+                        feature_obj.cGlobalPoint = (feature_obj.getGlobalPlacement().Base +
+                                                    App.Vector(flat.to_list()[-1]))
                         feature_obj.Shape = make_wires(simplified)
                     else:
                         self.reset_properties(feature_obj)
@@ -194,9 +201,11 @@ class SliceObject:
                 clamped: ak.Array = clamp_path(self._paths, clamped_point_idx)
                 flat_clamped: ak.Array = ak.flatten(clamped)
 
-                if hasattr(feature_obj, "aPoints") and hasattr(feature_obj, "bPoint"):
-                    feature_obj.aPoints = flat_clamped.to_list()
-                    feature_obj.bPoint = flat_clamped.to_list()[-1]
+                if hasattr(feature_obj, "aLocalPoints") and hasattr(feature_obj, "bLocalPoint"):
+                    feature_obj.aLocalPoints = flat_clamped.to_list()
+                    feature_obj.bLocalPoint = flat_clamped.to_list()[-1]
+                    feature_obj.cGlobalPoint = (feature_obj.getGlobalPlacement().Base +
+                                                App.Vector(flat_clamped.to_list()[-1]))
 
                 feature_obj.Shape = make_wires(clamped)
 
@@ -212,9 +221,11 @@ class SliceObject:
                     clamped: ak.Array = clamp_path(ak.Array([layer]), clamped_point_idx)
                     flat_clamped: ak.Array = ak.flatten(clamped)
 
-                    if hasattr(feature_obj, "aPoints") and hasattr(feature_obj, "bPoint"):
-                        feature_obj.aPoints = flat_clamped.to_list()
-                        feature_obj.bPoint = flat_clamped.to_list()[-1]
+                    if hasattr(feature_obj, "aLocalPoints") and hasattr(feature_obj, "bLocalPoint"):
+                        feature_obj.aLocalPoints = flat_clamped.to_list()
+                        feature_obj.bLocalPoint = flat_clamped.to_list()[-1]
+                        feature_obj.cGlobalPoint = (feature_obj.getGlobalPlacement().Base +
+                                                    App.Vector(flat_clamped.to_list()[-1]))
 
                     feature_obj.Shape = make_wires(clamped)
 
@@ -228,9 +239,11 @@ class SliceObject:
                 layer: ak.Array = self._paths[clamped_idx]
                 flat_layer: ak.Array = ak.flatten(layer)
 
-                if hasattr(feature_obj, "aPoints") and hasattr(feature_obj, "bPoint"):
-                    feature_obj.aPoints = flat_layer.to_list()
-                    feature_obj.bPoint = flat_layer.to_list()[-1]
+                if hasattr(feature_obj, "aLocalPoints") and hasattr(feature_obj, "bLocalPoint"):
+                    feature_obj.aLocalPoints = flat_layer.to_list()
+                    feature_obj.bLocalPoint = flat_layer.to_list()[-1]
+                    feature_obj.cGlobalPoint = (feature_obj.getGlobalPlacement().Base +
+                                                App.Vector(flat_layer.to_list()[-1]))
 
                 feature_obj.Shape = make_wires(layer)
 
