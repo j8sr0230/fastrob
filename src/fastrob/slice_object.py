@@ -142,6 +142,7 @@ class SliceObject:
 
                 if not p.stderr:
                     self._paths: Optional[ak.Array] = ak.Array(parse_g_code(file=temp_path + ".gcode"))
+
                     if self._paths.layout.minmax_depth == (3, 3):
                         simplified: ak.Array = ak.flatten(self._paths)
                         flat: ak.Array = ak.flatten(simplified)
@@ -195,12 +196,29 @@ class SliceObject:
         if prop == "iAxisOffset" and self._paths is not None:
             offset: App.Vector = feature_obj.getPropertyByName("iAxisOffset")
             if offset != App.Vector(0, 0, 0):
-                for layer_idx in range(len(self._paths)):
-                    for path_idx in range(len(self._paths[layer_idx])):
-                        if len(self._paths[layer_idx][path_idx]) > 1:
-                            print("Start:", self._paths[layer_idx][path_idx][0],
-                                  "Stop:", self._paths[layer_idx][path_idx][-1])
-                            # TODO: Append offset point on start and end of every path
+                first_items: ak.Array = ak.unflatten(ak.firsts(self._paths, axis=-1), counts=1, axis=-1)
+                first_x = first_items["0"] + offset.x
+                first_y = first_items["1"] + offset.y
+                first_z = first_items["2"] + offset.z
+                first_items: ak.Array = ak.zip([first_x, first_y, first_z])
+
+                last_indexes: ak.Array = ak.unflatten(ak.num(self._paths, axis=-1) - 1, counts=1, axis=-1)
+                last_items: ak.Array = self._paths[last_indexes]
+                last_x = first_items["0"] + offset.x
+                last_y = first_items["1"] + offset.y
+                last_z = first_items["2"] + offset.z
+                last_items: ak.Array = ak.zip([last_x, last_y, last_z])
+
+                self._paths: ak.Array = ak.concatenate([first_items, self._paths, last_items], axis=-1)
+
+                simplified: ak.Array = ak.flatten(self._paths)
+                flat: ak.Array = ak.flatten(simplified)
+
+                feature_obj.aLocalPoints = flat.to_list()
+                feature_obj.bLocalPoint = flat.to_list()[-1]
+                feature_obj.cGlobalPoint = (feature_obj.getGlobalPlacement().Base +
+                                            App.Vector(flat.to_list()[-1]))
+                feature_obj.Shape = make_wires(simplified)
 
         if prop == "cPointIndex" and self._paths is not None:
             if hasattr(feature_obj, "aMode") and feature_obj.getPropertyByName("aMode") == "All":
