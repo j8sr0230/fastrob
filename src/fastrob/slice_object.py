@@ -68,6 +68,7 @@ class SliceObject:
         feature_obj.addProperty("App::PropertyPercent", "fDensity", "Slicing", "Density of the filling")
         feature_obj.addProperty("App::PropertyAngle", "gAngle", "Slicing", "Angle of the filling")
         feature_obj.addProperty("App::PropertyLength", "hAnchor", "Slicing", "Anchor length of the filling")
+        feature_obj.addProperty("App::PropertyVector", "iAxisOffset", "Slicing", "Additional offset before/after path")
         feature_obj.addProperty("App::PropertyEnumeration", "aMode", "Filter", "Mode of the path filter")
         # feature_obj.addProperty("App::PropertyInteger", "bLayerIndex", "Filter", "Layer to be filtered")
         feature_obj.addProperty("App::PropertyInteger", "bLayerIndex", "Filter", "Layer to be filtered")
@@ -93,6 +94,7 @@ class SliceObject:
         feature_obj.fDensity = 100
         feature_obj.gAngle = 45.
         feature_obj.hAnchor = 10.
+        feature_obj.iAxisOffset = (0, 0, 0)
         feature_obj.aMode = ["None", "All", "Layer"]
         feature_obj.bLayerIndex = 0
         feature_obj.cPointIndex = 0
@@ -189,6 +191,16 @@ class SliceObject:
     def onChanged(self, feature_obj: Part.Feature, prop: str) -> None:
         if not hasattr(self, "_feature_obj"):
             self._feature_obj: Part.Feature = feature_obj
+
+        if prop == "iAxisOffset" and self._paths is not None:
+            offset: App.Vector = feature_obj.getPropertyByName("iAxisOffset")
+            if offset != App.Vector(0, 0, 0):
+                for layer_idx in range(len(self._paths)):
+                    for path_idx in range(len(self._paths[layer_idx])):
+                        if len(self._paths[layer_idx][path_idx]) > 1:
+                            print("Start:", self._paths[layer_idx][path_idx][0],
+                                  "Stop:", self._paths[layer_idx][path_idx][-1])
+                            # TODO: Append offset point on start and end of every path
 
         if prop == "cPointIndex" and self._paths is not None:
             if hasattr(feature_obj, "aMode") and feature_obj.getPropertyByName("aMode") == "All":
