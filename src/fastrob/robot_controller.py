@@ -14,7 +14,7 @@ import FreeCAD as App
 import Part
 
 
-class RobotControllerObject:
+class RobotController:
     AXIS_LABELS: list[str] = ["aA1", "bA2", "cA3", "dA4", "eA5", "fA6"]
 
     def __init__(self, feature_obj: Part.Feature, robot_grp: App.DocumentObjectGroup) -> None:
@@ -171,9 +171,9 @@ class RobotControllerObject:
 
 
 if __name__ == "__main__":
-    import robot_controller_object  # noqa
-    importlib.reload(robot_controller_object)
-    from robot_controller_object import RobotControllerObject  # noqa
+    import robot_controller  # noqa
+    importlib.reload(robot_controller)
+    from robot_controller import RobotController  # noqa
 
     if App.ActiveDocument:
         if len(Gui.Selection.getSelection()) > 0:
@@ -186,7 +186,7 @@ if __name__ == "__main__":
                 robot_ctrl_doc_obj: Part.Feature = cast(
                     Part.Feature, App.ActiveDocument.addObject("Part::FeaturePython", "Controller")
                 )
-                RobotControllerObject(feature_obj=robot_ctrl_doc_obj, robot_grp=selection)
+                RobotController(feature_obj=robot_ctrl_doc_obj, robot_grp=selection)
                 robot_ctrl_doc_obj.ViewObject.Proxy = 0
             else:
                 print("No or empty group selected.")

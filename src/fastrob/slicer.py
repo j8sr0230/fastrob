@@ -58,7 +58,7 @@ class ValueSlider(QtWidgets.QWidget):
         self._info_label.setText(str(self._slider.value()))
 
 
-class SliceObject:
+class Slicer:
     def __init__(self, feature_obj: Part.Feature, mesh: Mesh.Feature) -> None:
         feature_obj.addProperty("App::PropertyLink", "aMesh", "Slicing", "Target mesh")
         feature_obj.addProperty("App::PropertyLength", "bHeight", "Slicing", "Layer height of the slice")
@@ -279,9 +279,9 @@ class SliceObject:
 
 
 if __name__ == "__main__":
-    import slice_object  # noqa
-    importlib.reload(slice_object)
-    from slice_object import SliceObject  # noqa
+    import slicer  # noqa
+    importlib.reload(slicer)
+    from slicer import Slicer  # noqa
 
     if App.ActiveDocument:
         if len(Gui.Selection.getSelection()) > 0:
@@ -292,9 +292,9 @@ if __name__ == "__main__":
                 selection: Mesh.Feature = cast(Mesh.Feature, selection)
 
                 slice_doc_obj: Part.Feature = cast(
-                    Part.Feature, App.ActiveDocument.addObject("Part::FeaturePython", "Slice")
+                    Part.Feature, App.ActiveDocument.addObject("Part::FeaturePython", "Slicer")
                 )
-                SliceObject(feature_obj=slice_doc_obj, mesh=selection)
+                Slicer(feature_obj=slice_doc_obj, mesh=selection)
                 slice_doc_obj.ViewObject.Proxy = 0
                 # ViewProviderSliceObject(view_obj=slice_doc_obj.ViewObject)
             else:
