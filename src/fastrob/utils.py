@@ -1,8 +1,11 @@
-from typing import Optional
+from typing import Optional, Iterator
 import subprocess
 
 import numpy as np
 import awkward as ak
+
+from ikpy.chain import Chain
+from ikpy.link import OriginLink, URDFLink
 
 import FreeCAD as App
 import Part
@@ -119,3 +122,39 @@ def make_wires(simple_path: ak.Array) -> Part.Shape:
 
     shape: Part.Shape = Part.makeCompound([Part.makePolygon(path) for path in vectors if len(path) > 1])
     return shape if len(shape.Vertexes) > 1 else Part.Shape()
+
+
+def kinematic_chain(axis_parts: list[App.Part]) -> Chain:
+    return Chain(name="robot", links=[
+        OriginLink(),
+        URDFLink(name="A1", origin_translation=np.array(axis_parts[0].Placement.Base),
+                 origin_orientation=np.radians(axis_parts[0].Placement.Rotation.toEulerAngles("XYZ")),
+                 rotation=np.array(axis_parts[0].Placement.Rotation.Axis)),
+        URDFLink(name="A2", origin_translation=np.array(axis_parts[1].Placement.Base),
+                 origin_orientation=np.radians(axis_parts[1].Placement.Rotation.toEulerAngles("XYZ")),
+                 rotation=np.array(axis_parts[1].Placement.Rotation.Axis)),
+        URDFLink(name="A3", origin_translation=np.array(axis_parts[2].Placement.Base),
+                 origin_orientation=np.radians(axis_parts[2].Placement.Rotation.toEulerAngles("XYZ")),
+                 rotation=np.array(axis_parts[2].Placement.Rotation.Axis)),
+        URDFLink(name="A4", origin_translation=np.array(axis_parts[3].Placement.Base),
+                 origin_orientation=np.radians(axis_parts[3].Placement.Rotation.toEulerAngles("XYZ")),
+                 rotation=np.array(axis_parts[3].Placement.Rotation.Axis)),
+        URDFLink(name="A5", origin_translation=np.array(axis_parts[4].Placement.Base),
+                 origin_orientation=np.radians(axis_parts[4].Placement.Rotation.toEulerAngles("XYZ")),
+                 rotation=np.array(axis_parts[4].Placement.Rotation.Axis)),
+        URDFLink(name="A6", origin_translation=np.array(axis_parts[5].Placement.Base),
+                 origin_orientation=np.radians(axis_parts[5].Placement.Rotation.toEulerAngles("XYZ")),
+                 rotation=np.array(axis_parts[5].Placement.Rotation.Axis)),
+        URDFLink(name="TCP", origin_translation=np.array(axis_parts[6].Placement.Base),
+                 origin_orientation=np.radians(axis_parts[6].Placement.Rotation.toEulerAngles("XYZ")),
+                 rotation=np.array([1, 0, 0]))
+    ], active_links_mask=[False, True, True, True, True, True, True, False])
+
+
+def kinematic_part_iterator(kinematic_part: App.Part) -> Iterator:
+    if kinematic_part.Label.startswith("A") or kinematic_part.Label.startswith("TCP"):
+        yield kinematic_part
+
+    if hasattr(kinematic_part, "Group") and len(kinematic_part.getPropertyByName("Group")) > 0:
+        for next_item in kinematic_part_iterator(kinematic_part.Group[0]):
+            yield next_item

@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import cast, Optional, Iterator
+from typing import cast, Optional
 
 import importlib
 from math import radians, degrees
@@ -7,11 +7,12 @@ from math import radians, degrees
 import numpy as np
 
 from ikpy.chain import Chain
-from ikpy.link import OriginLink, URDFLink
 
 import FreeCADGui as Gui
 import FreeCAD as App
 import Part
+
+from utils import kinematic_part_iterator, kinematic_chain
 
 
 class RobotController:
@@ -40,50 +41,15 @@ class RobotController:
         self._chain: Optional[Chain] = None
         self.init_kinematics(cast(App.Part, robot_grp.Group[0]))
 
-    @staticmethod
-    def kinematic_chain(axis_parts: list[App.Part]) -> Chain:
-        return Chain(name="robot", links=[
-            OriginLink(),
-            URDFLink(name="A1", origin_translation=np.array(axis_parts[0].Placement.Base),
-                     origin_orientation=np.radians(axis_parts[0].Placement.Rotation.toEulerAngles("XYZ")),
-                     rotation=np.array(axis_parts[0].Placement.Rotation.Axis)),
-            URDFLink(name="A2", origin_translation=np.array(axis_parts[1].Placement.Base),
-                     origin_orientation=np.radians(axis_parts[1].Placement.Rotation.toEulerAngles("XYZ")),
-                     rotation=np.array(axis_parts[1].Placement.Rotation.Axis)),
-            URDFLink(name="A3", origin_translation=np.array(axis_parts[2].Placement.Base),
-                     origin_orientation=np.radians(axis_parts[2].Placement.Rotation.toEulerAngles("XYZ")),
-                     rotation=np.array(axis_parts[2].Placement.Rotation.Axis)),
-            URDFLink(name="A4", origin_translation=np.array(axis_parts[3].Placement.Base),
-                     origin_orientation=np.radians(axis_parts[3].Placement.Rotation.toEulerAngles("XYZ")),
-                     rotation=np.array(axis_parts[3].Placement.Rotation.Axis)),
-            URDFLink(name="A5", origin_translation=np.array(axis_parts[4].Placement.Base),
-                     origin_orientation=np.radians(axis_parts[4].Placement.Rotation.toEulerAngles("XYZ")),
-                     rotation=np.array(axis_parts[4].Placement.Rotation.Axis)),
-            URDFLink(name="A6", origin_translation=np.array(axis_parts[5].Placement.Base),
-                     origin_orientation=np.radians(axis_parts[5].Placement.Rotation.toEulerAngles("XYZ")),
-                     rotation=np.array(axis_parts[5].Placement.Rotation.Axis)),
-            URDFLink(name="TCP", origin_translation=np.array(axis_parts[6].Placement.Base),
-                     origin_orientation=np.radians(axis_parts[6].Placement.Rotation.toEulerAngles("XYZ")),
-                     rotation=np.array([1, 0, 0]))
-        ], active_links_mask=[False, True, True, True, True, True, True, False])
-
-    def kinematic_part_iterator(self, kinematic_part: App.Part) -> Iterator:
-        if kinematic_part.Label.startswith("A") or kinematic_part.Label.startswith("TCP"):
-            yield kinematic_part
-
-        if hasattr(kinematic_part, "Group") and len(kinematic_part.getPropertyByName("Group")) > 0:
-            for next_item in self.kinematic_part_iterator(kinematic_part.Group[0]):
-                yield next_item
-
     def init_kinematics(self, kinematic_part: App.Part) -> None:
-        self._kinematic_parts: list[App.Part] = list(self.kinematic_part_iterator(cast(App.Part, kinematic_part)))
+        self._kinematic_parts: list[App.Part] = list(kinematic_part_iterator(cast(App.Part, kinematic_part)))
 
         if len(self._kinematic_parts) == 7:
             self._axis_offset_rad: np.ndarray = np.array(
                 [self._kinematic_parts[i].Placement.Rotation.Angle for i in range(6)]
             )
 
-            self._chain: Optional[Chain] = self.kinematic_chain(self._kinematic_parts)
+            self._chain: Optional[Chain] = kinematic_chain(self._kinematic_parts)
 
             for idx, axis_prop in enumerate(self.AXIS_LABELS):
                 if hasattr(self._feature_obj, axis_prop):
