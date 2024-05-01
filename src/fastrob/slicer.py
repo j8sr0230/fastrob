@@ -107,6 +107,7 @@ class Slicer:
 
         self._slider: Optional[ValueSlider] = None
         self._paths: Optional[ak.Array] = None
+        self._modified_paths: Optional[ak.Array] = None
 
     def reset_properties(self, feature_obj: Part.Feature) -> None:
         self._paths: Optional[ak.Array] = None
@@ -142,6 +143,7 @@ class Slicer:
 
                 if not p.stderr:
                     self._paths: Optional[ak.Array] = ak.Array(parse_g_code(file=temp_path + ".gcode"))
+                    self._modified_paths: Optional[ak.Array] = ak.copy(self._paths)
 
                     offset: App.Vector = feature_obj.getPropertyByName("iAxisOffset")
                     if offset != App.Vector(0, 0, 0):
@@ -158,10 +160,10 @@ class Slicer:
                         last_z = last_items["2"] + offset.z
                         last_items: ak.Array = ak.zip([last_x, last_y, last_z])
 
-                        self._paths: ak.Array = ak.concatenate([first_items, self._paths, last_items], axis=-1)
+                        self._modified_paths: ak.Array = ak.concatenate([first_items, self._paths, last_items], axis=-1)
 
-                    if self._paths.layout.minmax_depth == (3, 3):
-                        simplified: ak.Array = ak.flatten(self._paths)
+                    if self._modified_paths.layout.minmax_depth == (3, 3):
+                        simplified: ak.Array = ak.flatten(self._modified_paths)
                         flat: ak.Array = ak.flatten(simplified)
 
                         feature_obj.aLocalPoints = flat.to_list()
@@ -178,16 +180,16 @@ class Slicer:
 
     # noinspection PyPep8Naming
     def editProperty(self, prop: str) -> None:
-        if prop == "bLayerIndex" and self._paths is not None:
+        if prop == "bLayerIndex" and self._modified_paths is not None:
             if self._feature_obj.getPropertyByName("aMode") in ("All", "Layer"):
                 self._slider: ValueSlider = ValueSlider("Layer Index", self._feature_obj, prop,
-                                                        (0, len(self._paths) - 1),
+                                                        (0, len(self._modified_paths) - 1),
                                                         self._feature_obj.getPropertyByName("bLayerIndex"))
                 self._slider.show()
 
-        elif prop == "cPointIndex" and self._paths is not None:
+        elif prop == "cPointIndex" and self._modified_paths is not None:
             if self._feature_obj.getPropertyByName("aMode") == "All":
-                simplified: ak.Array = ak.flatten(self._paths)
+                simplified: ak.Array = ak.flatten(self._modified_paths)
                 flat: ak.Array = ak.flatten(simplified)
 
                 self._slider: ValueSlider = ValueSlider("Point Index", self._feature_obj, prop, (0, len(flat) - 1),
@@ -196,8 +198,8 @@ class Slicer:
 
             elif self._feature_obj.getPropertyByName("aMode") == "Layer":
                 layer_idx: int = self._feature_obj.getPropertyByName("bLayerIndex")
-                clamped_layer_idx = max(0, min(layer_idx, len(self._paths) - 1))
-                layer: ak.Array = self._paths[clamped_layer_idx]
+                clamped_layer_idx = max(0, min(layer_idx, len(self._modified_paths) - 1))
+                layer: ak.Array = self._modified_paths[clamped_layer_idx]
                 flat_layer: ak.Array = ak.flatten(layer)
 
                 self._slider: ValueSlider = ValueSlider("Point Index", self._feature_obj, prop,
@@ -210,15 +212,15 @@ class Slicer:
         if not hasattr(self, "_feature_obj"):
             self._feature_obj: Part.Feature = feature_obj
 
-        if prop == "cPointIndex" and self._paths is not None:
+        if prop == "cPointIndex" and self._modified_paths is not None:
             if hasattr(feature_obj, "aMode") and feature_obj.getPropertyByName("aMode") == "All":
                 point_idx: int = feature_obj.getPropertyByName("cPointIndex")
 
-                simplified: ak.Array = ak.flatten(self._paths)
+                simplified: ak.Array = ak.flatten(self._modified_paths)
                 flat: ak.Array = ak.flatten(simplified)
 
                 clamped_point_idx = max(0, min(point_idx, len(flat) - 1))
-                clamped: ak.Array = clamp_path(self._paths, clamped_point_idx)
+                clamped: ak.Array = clamp_path(self._modified_paths, clamped_point_idx)
                 flat_clamped: ak.Array = ak.flatten(clamped)
 
                 if hasattr(feature_obj, "aLocalPoints") and hasattr(feature_obj, "bLocalPoint"):
@@ -234,8 +236,8 @@ class Slicer:
                     layer_idx: int = feature_obj.getPropertyByName("bLayerIndex")
                     point_idx: int = feature_obj.getPropertyByName("cPointIndex")
 
-                    clamped_layer_idx = max(0, min(layer_idx, len(self._paths) - 1))
-                    layer: ak.Array = self._paths[clamped_layer_idx]
+                    clamped_layer_idx = max(0, min(layer_idx, len(self._modified_paths) - 1))
+                    layer: ak.Array = self._modified_paths[clamped_layer_idx]
                     flat_layer: ak.Array = ak.flatten(layer)
                     clamped_point_idx = max(0, min(point_idx, len(flat_layer) - 1))
                     clamped: ak.Array = clamp_path(ak.Array([layer]), clamped_point_idx)
@@ -249,14 +251,12 @@ class Slicer:
 
                     feature_obj.Shape = make_wires(clamped)
 
-            App.ActiveDocument.recompute()
-
-        if prop == "bLayerIndex" and self._paths is not None:
+        if prop == "bLayerIndex" and self._modified_paths is not None:
             if hasattr(feature_obj, "aMode") and feature_obj.getPropertyByName("aMode") == "Layer":
                 layer_idx: int = feature_obj.getPropertyByName("bLayerIndex")
 
-                clamped_idx = max(0, min(layer_idx, len(self._paths) - 1))
-                layer: ak.Array = self._paths[clamped_idx]
+                clamped_idx = max(0, min(layer_idx, len(self._modified_paths) - 1))
+                layer: ak.Array = self._modified_paths[clamped_idx]
                 flat_layer: ak.Array = ak.flatten(layer)
 
                 if hasattr(feature_obj, "aLocalPoints") and hasattr(feature_obj, "bLocalPoint"):
@@ -267,14 +267,44 @@ class Slicer:
 
                 feature_obj.Shape = make_wires(layer)
 
-            App.ActiveDocument.recompute()
+        if prop == "iAxisOffset" and self._modified_paths is not None:
+            offset: App.Vector = feature_obj.getPropertyByName("iAxisOffset")
+            if offset != App.Vector(0, 0, 0):
+                first_items: ak.Array = ak.unflatten(ak.firsts(self._paths, axis=-1), counts=1, axis=-1)
+                first_x = first_items["0"] + offset.x
+                first_y = first_items["1"] + offset.y
+                first_z = first_items["2"] + offset.z
+                first_items: ak.Array = ak.zip([first_x, first_y, first_z])
 
-    def dumps(self) -> dict:
-        return ak.to_json(self._paths)
+                last_indexes: ak.Array = ak.unflatten(ak.num(self._paths, axis=-1) - 1, counts=1, axis=-1)
+                last_items: ak.Array = self._paths[last_indexes]
+                last_x = last_items["0"] + offset.x
+                last_y = last_items["1"] + offset.y
+                last_z = last_items["2"] + offset.z
+                last_items: ak.Array = ak.zip([last_x, last_y, last_z])
 
-    def loads(self, state: dict) -> None:
-        paths_record: ak.Array = ak.from_json(state)
+                self._modified_paths: ak.Array = ak.concatenate([first_items, self._paths, last_items], axis=-1)
+
+                if self._modified_paths.layout.minmax_depth == (3, 3):
+                    simplified: ak.Array = ak.flatten(self._modified_paths)
+                    flat: ak.Array = ak.flatten(simplified)
+
+                    feature_obj.aLocalPoints = flat.to_list()
+                    feature_obj.bLocalPoint = flat.to_list()[-1]
+                    feature_obj.cGlobalPoint = (feature_obj.getGlobalPlacement().Base +
+                                                App.Vector(flat.to_list()[-1]))
+                    feature_obj.Shape = make_wires(simplified)
+
+    def dumps(self) -> tuple[str, str]:
+        return ak.to_json(self._paths), ak.to_json(self._modified_paths)
+
+    def loads(self, state: tuple[str, str]) -> None:
+        paths_record: ak.Array = ak.from_json(state[0])
         self._paths: ak.Array = ak.zip([paths_record["0"], paths_record["1"], paths_record["2"]])
+        modified_paths_record: ak.Array = ak.from_json(state[1])
+        self._modified_paths: ak.Array = ak.zip(
+            [modified_paths_record["0"], modified_paths_record["1"], modified_paths_record["2"]]
+        )
         return None
 
 
@@ -296,7 +326,6 @@ if __name__ == "__main__":
                 )
                 Slicer(feature_obj=slice_doc_obj, mesh=selection)
                 slice_doc_obj.ViewObject.Proxy = 0
-                # ViewProviderSliceObject(view_obj=slice_doc_obj.ViewObject)
             else:
                 print("No mesh selected.")
         else:
