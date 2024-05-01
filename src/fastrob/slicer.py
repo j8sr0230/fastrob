@@ -230,6 +230,7 @@ class Slicer:
                                                 App.Vector(flat_clamped.to_list()[-1]))
 
                 feature_obj.Shape = make_wires(clamped)
+                App.ActiveDocument.recompute()
 
             if hasattr(feature_obj, "aMode") and feature_obj.getPropertyByName("aMode") == "Layer":
                 if hasattr(feature_obj, "bLayerIndex"):
@@ -250,6 +251,7 @@ class Slicer:
                                                     App.Vector(flat_clamped.to_list()[-1]))
 
                     feature_obj.Shape = make_wires(clamped)
+                    App.ActiveDocument.recompute()
 
         if prop == "bLayerIndex" and self._modified_paths is not None:
             if hasattr(feature_obj, "aMode") and feature_obj.getPropertyByName("aMode") == "Layer":
@@ -266,6 +268,7 @@ class Slicer:
                                                 App.Vector(flat_layer.to_list()[-1]))
 
                 feature_obj.Shape = make_wires(layer)
+                App.ActiveDocument.recompute()
 
         if prop == "iAxisOffset" and self._modified_paths is not None:
             offset: App.Vector = feature_obj.getPropertyByName("iAxisOffset")
