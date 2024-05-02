@@ -119,7 +119,7 @@ def discretize_paths(paths: ak.Array, distance: int = 2) -> ak.Array:
     return ak.zip([result[..., 0], result[..., 1], result[..., 2]])
 
 
-def shift_paths(paths: ak.Array, shift: int = 1) -> ak.Array:
+def shift_closed_paths(paths: ak.Array, shift: int = 1) -> ak.Array:
     if shift == 0:
         return paths
 

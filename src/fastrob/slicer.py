@@ -21,7 +21,7 @@ if os.getcwd() not in sys.path:
 
 import utils
 importlib.reload(utils)
-from utils import (slice_stl, parse_g_code, discretize_paths, shift_paths, path_axis_offset, clamp_path,
+from utils import (slice_stl, parse_g_code, discretize_paths, shift_closed_paths, path_axis_offset, clamp_path,
                    make_wires)  # noqa
 
 
@@ -154,7 +154,7 @@ class Slicer:
                         temp_paths: Optional[ak.Array] = discretize_paths(self._paths, distance)
 
                         shift: int = feature_obj.getPropertyByName("kShift")
-                        temp_paths: Optional[ak.Array] = shift_paths(temp_paths, shift)
+                        temp_paths: Optional[ak.Array] = shift_closed_paths(temp_paths, shift)
 
                         offset: App.Vector = feature_obj.getPropertyByName("iAxisOffset")
                         self._modified_paths: ak.Array = path_axis_offset(temp_paths, offset)
