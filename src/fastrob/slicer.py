@@ -14,6 +14,7 @@ import PySide2.QtWidgets as QtWidgets
 import FreeCADGui as Gui
 import FreeCAD as App
 import Part
+import Points
 import Mesh
 
 if os.getcwd() not in sys.path:
@@ -143,24 +144,50 @@ class Slicer:
 
                 if not p.stderr:
                     self._paths: Optional[ak.Array] = ak.Array(parse_g_code(file=temp_path + ".gcode"))
-                    self._modified_paths: Optional[ak.Array] = ak.copy(self._paths)
+                    # self._modified_paths: Optional[ak.Array] = ak.copy(self._paths)
+
+                    self._modified_paths: list[list[list[App.Vector]]] = []
+                    for layer in self._paths.to_list():
+                        layer_points: list[list[App.Vector]] = []
+                        for path in layer:
+                            if len(path) > 1:
+                                points_kernel: Points.Points = Points.Points()
+                                points_kernel.addPoints(path)
+                                layer_points.append(Part.makePolygon(path).discretize(Distance=2))
+                        self._modified_paths.append(layer_points)
+
+                    self._modified_paths: Optional[ak.Array] = ak.Array(
+                        self._modified_paths
+                    )
+
+                    self._modified_paths: Optional[ak.Array] = ak.zip(
+                        [self._modified_paths[..., 0],
+                         self._modified_paths[..., 1],
+                         self._modified_paths[..., 2]]
+                    )
 
                     offset: App.Vector = feature_obj.getPropertyByName("iAxisOffset")
                     if offset != App.Vector(0, 0, 0):
-                        first_items: ak.Array = ak.unflatten(ak.firsts(self._paths, axis=-1), counts=1, axis=-1)
+                        first_items: ak.Array = ak.unflatten(
+                            ak.firsts(self._modified_paths, axis=-1), counts=1, axis=-1
+                        )
                         first_x = first_items["0"] + offset.x
                         first_y = first_items["1"] + offset.y
                         first_z = first_items["2"] + offset.z
                         first_items: ak.Array = ak.zip([first_x, first_y, first_z])
 
-                        last_indexes: ak.Array = ak.unflatten(ak.num(self._paths, axis=-1) - 1, counts=1, axis=-1)
+                        last_indexes: ak.Array = ak.unflatten(
+                            ak.num(self._modified_paths, axis=-1) - 1, counts=1, axis=-1
+                        )
                         last_items: ak.Array = self._paths[last_indexes]
                         last_x = last_items["0"] + offset.x
                         last_y = last_items["1"] + offset.y
                         last_z = last_items["2"] + offset.z
                         last_items: ak.Array = ak.zip([last_x, last_y, last_z])
 
-                        self._modified_paths: ak.Array = ak.concatenate([first_items, self._paths, last_items], axis=-1)
+                        self._modified_paths: ak.Array = ak.concatenate(
+                            [first_items, self._modified_paths, last_items], axis=-1
+                        )
 
                     if self._modified_paths.layout.minmax_depth == (3, 3):
                         simplified: ak.Array = ak.flatten(self._modified_paths)
