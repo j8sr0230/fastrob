@@ -150,7 +150,7 @@ class Slicer:
                     if self._paths.layout.minmax_depth == (3, 3):
                         distance: int = feature_obj.getPropertyByName("jDiscretize")
                         temp_paths: Optional[ak.Array] = discretize_paths(self._paths, distance)
-                        temp_paths: Optional[ak.Array] = shift_paths(temp_paths)
+                        temp_paths: Optional[ak.Array] = shift_paths(temp_paths, 5)
                         offset: App.Vector = feature_obj.getPropertyByName("iAxisOffset")
                         self._modified_paths: ak.Array = offset_path_borders(temp_paths, offset)
 
