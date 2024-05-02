@@ -101,41 +101,64 @@ def parse_g_code(file: str) -> ak.Array:
 
 
 def discretize_paths(paths: ak.Array, distance: int = 2) -> ak.Array:
-    if distance > 0:
-        result: list[list[list[App.Vector]]] = []
-        if paths.layout.minmax_depth == (3, 3):
-            for layer in paths.to_list():
-                layers: list[list[App.Vector]] = []
-                for path in layer:
-                    if len(path) > 1:
-                        points_kernel: Points.Points = Points.Points()
-                        points_kernel.addPoints(path)
-                        layers.append(Part.makePolygon(path).discretize(Distance=distance))
-                result.append(layers)
-
-        result: ak.Array = ak.Array(result)
-        return ak.zip([result[..., 0], result[..., 1], result[..., 2]])
-    else:
+    if distance == 0:
         return paths
+
+    result: list[list[list[App.Vector]]] = []
+    if paths.layout.minmax_depth == (3, 3):
+        for layer in paths.to_list():
+            new_layer: list[list[App.Vector]] = []
+            for path in layer:
+                if len(path) > 1:
+                    points_kernel: Points.Points = Points.Points()
+                    points_kernel.addPoints(path)
+                    new_layer.append(Part.makePolygon(path).discretize(Distance=distance))
+            result.append(new_layer)
+
+    result: ak.Array = ak.Array(result)
+    return ak.zip([result[..., 0], result[..., 1], result[..., 2]])
+
+
+def shift_paths(paths: ak.Array, shift: int = 1) -> ak.Array:
+    if shift == 0:
+        return paths
+
+    result: list[list[list[App.Vector]]] = []
+    if paths.layout.minmax_depth == (3, 3):
+        for layer in paths.to_list():
+            new_layer: list[list[App.Vector]] = []
+            for path in layer:
+                dist: float = np.linalg.norm(np.array(path[0]) - np.array(path[-1]))
+                if len(path) > 1:
+                    if dist < 1:
+                        # new_layer.append(path[-shift:] + path[:-shift])
+                        new_layer.append(path)
+                    else:
+                        new_layer.append(path)
+
+            result.append(new_layer)
+
+    result: ak.Array = ak.Array(result)
+    return ak.zip([result[..., 0], result[..., 1], result[..., 2]])
 
 
 def offset_path_borders(paths: ak.Array, offset: App.Vector) -> ak.Array:
-    if offset != App.Vector(0, 0, 0):
-        first_items: ak.Array = ak.unflatten(ak.firsts(paths, axis=-1), counts=1, axis=-1)
-        first_x = first_items["0"] + offset.x
-        first_y = first_items["1"] + offset.y
-        first_z = first_items["2"] + offset.z
-        first_items: ak.Array = ak.zip([first_x, first_y, first_z])
-
-        last_indexes: ak.Array = ak.unflatten(ak.num(paths, axis=-1) - 1, counts=1, axis=-1)
-        last_items: ak.Array = paths[last_indexes]
-        last_x = last_items["0"] + offset.x
-        last_y = last_items["1"] + offset.y
-        last_z = last_items["2"] + offset.z
-        last_items: ak.Array = ak.zip([last_x, last_y, last_z])
-        return ak.concatenate([first_items, paths, last_items], axis=-1)
-    else:
+    if offset == App.Vector(0, 0, 0):
         return paths
+
+    first_items: ak.Array = ak.unflatten(ak.firsts(paths, axis=-1), counts=1, axis=-1)
+    first_x = first_items["0"] + offset.x
+    first_y = first_items["1"] + offset.y
+    first_z = first_items["2"] + offset.z
+    first_items: ak.Array = ak.zip([first_x, first_y, first_z])
+
+    last_indexes: ak.Array = ak.unflatten(ak.num(paths, axis=-1) - 1, counts=1, axis=-1)
+    last_items: ak.Array = paths[last_indexes]
+    last_x = last_items["0"] + offset.x
+    last_y = last_items["1"] + offset.y
+    last_z = last_items["2"] + offset.z
+    last_items: ak.Array = ak.zip([last_x, last_y, last_z])
+    return ak.concatenate([first_items, paths, last_items], axis=-1)
 
 
 def clamp_path(path: ak.Array, idx: int) -> ak.Array:

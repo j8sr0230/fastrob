@@ -21,7 +21,8 @@ if os.getcwd() not in sys.path:
 
 import utils
 importlib.reload(utils)
-from utils import slice_stl, parse_g_code, discretize_paths, offset_path_borders, clamp_path, make_wires  # noqa
+from utils import (slice_stl, parse_g_code, discretize_paths, shift_paths, offset_path_borders, clamp_path,
+                   make_wires)  # noqa
 
 
 class ValueSlider(QtWidgets.QWidget):
@@ -145,13 +146,23 @@ class Slicer:
 
                 if not p.stderr:
                     self._paths: Optional[ak.Array] = ak.Array(parse_g_code(file=temp_path + ".gcode"))
+                    print("path")
+                    self._paths.show()
 
                     if self._paths.layout.minmax_depth == (3, 3):
                         distance: int = feature_obj.getPropertyByName("jDiscretize")
                         temp_paths: Optional[ak.Array] = discretize_paths(self._paths, distance)
+                        print("temp")
+                        temp_paths.show()
+
+                        temp_paths: Optional[ak.Array] = shift_paths(temp_paths)
+                        print("temp")
+                        temp_paths.show()
 
                         offset: App.Vector = feature_obj.getPropertyByName("iAxisOffset")
                         self._modified_paths: ak.Array = offset_path_borders(temp_paths, offset)
+                        print("mod")
+                        self._modified_paths.show()
 
                         simplified: ak.Array = ak.flatten(self._modified_paths)
                         flat: ak.Array = ak.flatten(simplified)
