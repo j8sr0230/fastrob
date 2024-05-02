@@ -82,6 +82,10 @@ def parse_g_code(file: str) -> ak.Array:
 
                 if not (this_has_extrusion and next_has_extrusion):
                     if len(path) > 1:
+                        dist: float = np.linalg.norm(np.array(path[0]) - np.array(path[-1]))
+                        if dist < 1:
+                            path.append(path[0])
+
                         layer.append(path.copy())
                         path.clear()
 

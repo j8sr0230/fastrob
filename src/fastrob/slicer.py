@@ -223,9 +223,11 @@ class Slicer:
                 clamped: ak.Array = clamp_path(self._modified_paths, clamped_point_idx)
                 flat_clamped: ak.Array = ak.flatten(clamped)
 
-                if hasattr(feature_obj, "aLocalPoints") and hasattr(feature_obj, "bLocalPoint"):
+                if hasattr(feature_obj, "aLocalPoints"):
                     feature_obj.aLocalPoints = flat_clamped.to_list()
+                if hasattr(feature_obj, "bLocalPoint"):
                     feature_obj.bLocalPoint = flat_clamped.to_list()[-1]
+                if hasattr(feature_obj, "cGlobalPoint"):
                     feature_obj.cGlobalPoint = (feature_obj.getGlobalPlacement().Base +
                                                 App.Vector(flat_clamped.to_list()[-1]))
 
@@ -244,9 +246,11 @@ class Slicer:
                     clamped: ak.Array = clamp_path(ak.Array([layer]), clamped_point_idx)
                     flat_clamped: ak.Array = ak.flatten(clamped)
 
-                    if hasattr(feature_obj, "aLocalPoints") and hasattr(feature_obj, "bLocalPoint"):
+                    if hasattr(feature_obj, "aLocalPoints"):
                         feature_obj.aLocalPoints = flat_clamped.to_list()
+                    if hasattr(feature_obj, "bLocalPoint"):
                         feature_obj.bLocalPoint = flat_clamped.to_list()[-1]
+                    if hasattr(feature_obj, "cGlobalPoint"):
                         feature_obj.cGlobalPoint = (feature_obj.getGlobalPlacement().Base +
                                                     App.Vector(flat_clamped.to_list()[-1]))
 
@@ -261,9 +265,11 @@ class Slicer:
                 layer: ak.Array = self._modified_paths[clamped_idx]
                 flat_layer: ak.Array = ak.flatten(layer)
 
-                if hasattr(feature_obj, "aLocalPoints") and hasattr(feature_obj, "bLocalPoint"):
+                if hasattr(feature_obj, "aLocalPoints"):
                     feature_obj.aLocalPoints = flat_layer.to_list()
+                if hasattr(feature_obj, "bLocalPoint"):
                     feature_obj.bLocalPoint = flat_layer.to_list()[-1]
+                if hasattr(feature_obj, "cGlobalPoint"):
                     feature_obj.cGlobalPoint = (feature_obj.getGlobalPlacement().Base +
                                                 App.Vector(flat_layer.to_list()[-1]))
 
@@ -288,15 +294,68 @@ class Slicer:
 
                 self._modified_paths: ak.Array = ak.concatenate([first_items, self._paths, last_items], axis=-1)
 
-                if self._modified_paths.layout.minmax_depth == (3, 3):
-                    simplified: ak.Array = ak.flatten(self._modified_paths)
-                    flat: ak.Array = ak.flatten(simplified)
+                if hasattr(feature_obj, "aMode") and feature_obj.getPropertyByName("aMode") == "All":
+                    if hasattr(feature_obj, "cPointIndex") and self._modified_paths is not None:
+                        point_idx: int = feature_obj.getPropertyByName("cPointIndex")
 
-                    feature_obj.aLocalPoints = flat.to_list()
-                    feature_obj.bLocalPoint = flat.to_list()[-1]
-                    feature_obj.cGlobalPoint = (feature_obj.getGlobalPlacement().Base +
-                                                App.Vector(flat.to_list()[-1]))
-                    feature_obj.Shape = make_wires(simplified)
+                        if self._modified_paths.layout.minmax_depth == (3, 3):
+                            simplified: ak.Array = ak.flatten(self._modified_paths)
+                            flat: ak.Array = ak.flatten(simplified)
+
+                            clamped_point_idx = max(0, min(point_idx, len(flat) - 1))
+                            clamped: ak.Array = clamp_path(self._modified_paths, clamped_point_idx)
+                            flat_clamped: ak.Array = ak.flatten(clamped)
+
+                            if hasattr(feature_obj, "aLocalPoints"):
+                                feature_obj.aLocalPoints = flat_clamped.to_list()
+                            if hasattr(feature_obj, "bLocalPoint"):
+                                feature_obj.bLocalPoint = flat_clamped.to_list()[-1]
+                            if hasattr(feature_obj, "cGlobalPoint"):
+                                feature_obj.cGlobalPoint = (feature_obj.getGlobalPlacement().Base +
+                                                            App.Vector(flat_clamped.to_list()[-1]))
+
+                            feature_obj.Shape = make_wires(clamped)
+                            App.ActiveDocument.recompute()
+
+                if hasattr(feature_obj, "aMode") and feature_obj.getPropertyByName("aMode") == "Layer":
+                    layer_idx: int = feature_obj.getPropertyByName("bLayerIndex")
+
+                    if (hasattr(feature_obj, "bLayerIndex") and hasattr(feature_obj, "cPointIndex") and
+                            self._modified_paths is not None):
+                        point_idx: int = feature_obj.getPropertyByName("cPointIndex")
+
+                        clamped_layer_idx = max(0, min(layer_idx, len(self._modified_paths) - 1))
+                        layer: ak.Array = self._modified_paths[clamped_layer_idx]
+                        flat_layer: ak.Array = ak.flatten(layer)
+                        clamped_point_idx = max(0, min(point_idx, len(flat_layer) - 1))
+                        clamped: ak.Array = clamp_path(ak.Array([layer]), clamped_point_idx)
+                        flat_clamped: ak.Array = ak.flatten(clamped)
+
+                        if hasattr(feature_obj, "aLocalPoints"):
+                            feature_obj.aLocalPoints = flat_clamped.to_list()
+                        if hasattr(feature_obj, "bLocalPoint"):
+                            feature_obj.bLocalPoint = flat_clamped.to_list()[-1]
+                        if hasattr(feature_obj, "cGlobalPoint"):
+                            feature_obj.cGlobalPoint = (feature_obj.getGlobalPlacement().Base +
+                                                        App.Vector(flat_clamped.to_list()[-1]))
+
+                        feature_obj.Shape = make_wires(clamped)
+                        App.ActiveDocument.recompute()
+
+                if hasattr(feature_obj, "aMode") and feature_obj.getPropertyByName("aMode") == "None":
+                    if self._modified_paths.layout.minmax_depth == (3, 3):
+                        simplified: ak.Array = ak.flatten(self._modified_paths)
+                        flat: ak.Array = ak.flatten(simplified)
+
+                        if hasattr(feature_obj, "aLocalPoints"):
+                            feature_obj.aLocalPoints = flat.to_list()
+                        if hasattr(feature_obj, "bLocalPoint"):
+                            feature_obj.bLocalPoint = flat.to_list()[-1]
+                        if hasattr(feature_obj, "cGlobalPoint"):
+                            feature_obj.cGlobalPoint = (feature_obj.getGlobalPlacement().Base +
+                                                        App.Vector(flat.to_list()[-1]))
+                        feature_obj.Shape = make_wires(simplified)
+                        # App.ActiveDocument.recompute()
 
     def dumps(self) -> tuple[str, str]:
         return ak.to_json(self._paths), ak.to_json(self._modified_paths)
