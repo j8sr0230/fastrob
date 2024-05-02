@@ -21,7 +21,7 @@ if os.getcwd() not in sys.path:
 
 import utils
 importlib.reload(utils)
-from utils import (slice_stl, parse_g_code, discretize_paths, shift_paths, offset_path_borders, clamp_path,
+from utils import (slice_stl, parse_g_code, discretize_paths, shift_paths, path_axis_offset, clamp_path,
                    make_wires)  # noqa
 
 
@@ -71,6 +71,7 @@ class Slicer:
         feature_obj.addProperty("App::PropertyLength", "hAnchor", "Slicing", "Anchor length of the filling")
         feature_obj.addProperty("App::PropertyVector", "iAxisOffset", "Slicing", "Additional offset before/after path")
         feature_obj.addProperty("App::PropertyInteger", "jDiscretize", "Slicing", "Distance between path points")
+        feature_obj.addProperty("App::PropertyInteger", "kShift", "Slicing", "Shift of the perimeter seam")
         feature_obj.addProperty("App::PropertyEnumeration", "aMode", "Filter", "Mode of the path filter")
         # feature_obj.addProperty("App::PropertyInteger", "bLayerIndex", "Filter", "Layer to be filtered")
         feature_obj.addProperty("App::PropertyInteger", "bLayerIndex", "Filter", "Layer to be filtered")
@@ -96,8 +97,9 @@ class Slicer:
         feature_obj.fDensity = 100
         feature_obj.gAngle = 45.
         feature_obj.hAnchor = 10.
-        feature_obj.iAxisOffset = (0, 0, 0)
+        feature_obj.iAxisOffset = (0, 0, 10)
         feature_obj.jDiscretize = 0
+        feature_obj.kShift = 0
         feature_obj.aMode = ["None", "All", "Layer"]
         feature_obj.bLayerIndex = 0
         feature_obj.cPointIndex = 0
@@ -150,9 +152,12 @@ class Slicer:
                     if self._paths.layout.minmax_depth == (3, 3):
                         distance: int = feature_obj.getPropertyByName("jDiscretize")
                         temp_paths: Optional[ak.Array] = discretize_paths(self._paths, distance)
-                        temp_paths: Optional[ak.Array] = shift_paths(temp_paths, 5)
+
+                        shift: int = feature_obj.getPropertyByName("kShift")
+                        temp_paths: Optional[ak.Array] = shift_paths(temp_paths, shift)
+
                         offset: App.Vector = feature_obj.getPropertyByName("iAxisOffset")
-                        self._modified_paths: ak.Array = offset_path_borders(temp_paths, offset)
+                        self._modified_paths: ak.Array = path_axis_offset(temp_paths, offset)
 
                         simplified: ak.Array = ak.flatten(self._modified_paths)
                         flat: ak.Array = ak.flatten(simplified)

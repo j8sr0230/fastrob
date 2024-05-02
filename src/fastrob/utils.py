@@ -130,8 +130,11 @@ def shift_paths(paths: ak.Array, shift: int = 1) -> ak.Array:
             for path in layer:
                 dist: float = np.linalg.norm(np.array(path[0]) - np.array(path[-1]))
                 if len(path) > 1:
-                    if dist < 5:
-                        new_layer.append(path[-shift:] + path[:-shift])
+                    if dist < 1:
+                        new_path: list[App.Vector] = path[:-1]
+                        new_path: list[App.Vector] = new_path[-shift:] + path[:-shift]
+                        new_path.append(new_path[0])
+                        new_layer.append(new_path)
                     else:
                         new_layer.append(path)
 
@@ -139,7 +142,7 @@ def shift_paths(paths: ak.Array, shift: int = 1) -> ak.Array:
     return ak.Array(result)
 
 
-def offset_path_borders(paths: ak.Array, offset: App.Vector) -> ak.Array:
+def path_axis_offset(paths: ak.Array, offset: App.Vector) -> ak.Array:
     if offset == App.Vector(0, 0, 0):
         return paths
 
