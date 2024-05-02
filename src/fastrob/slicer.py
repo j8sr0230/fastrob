@@ -14,7 +14,6 @@ import PySide2.QtWidgets as QtWidgets
 import FreeCADGui as Gui
 import FreeCAD as App
 import Part
-import Points
 import Mesh
 
 if os.getcwd() not in sys.path:
@@ -22,10 +21,7 @@ if os.getcwd() not in sys.path:
 
 import utils
 importlib.reload(utils)
-from utils import slice_stl, parse_g_code, clamp_path, make_wires  # noqa
-
-
-DISCRETIZE: bool = True
+from utils import slice_stl, parse_g_code, discretize_paths, offset_path_borders, clamp_path, make_wires  # noqa
 
 
 class ValueSlider(QtWidgets.QWidget):
@@ -73,6 +69,7 @@ class Slicer:
         feature_obj.addProperty("App::PropertyAngle", "gAngle", "Slicing", "Angle of the filling")
         feature_obj.addProperty("App::PropertyLength", "hAnchor", "Slicing", "Anchor length of the filling")
         feature_obj.addProperty("App::PropertyVector", "iAxisOffset", "Slicing", "Additional offset before/after path")
+        feature_obj.addProperty("App::PropertyInteger", "jDiscretize", "Slicing", "Distance between path points")
         feature_obj.addProperty("App::PropertyEnumeration", "aMode", "Filter", "Mode of the path filter")
         # feature_obj.addProperty("App::PropertyInteger", "bLayerIndex", "Filter", "Layer to be filtered")
         feature_obj.addProperty("App::PropertyInteger", "bLayerIndex", "Filter", "Layer to be filtered")
@@ -99,6 +96,7 @@ class Slicer:
         feature_obj.gAngle = 45.
         feature_obj.hAnchor = 10.
         feature_obj.iAxisOffset = (0, 0, 0)
+        feature_obj.jDiscretize = 0
         feature_obj.aMode = ["None", "All", "Layer"]
         feature_obj.bLayerIndex = 0
         feature_obj.cPointIndex = 0
@@ -149,51 +147,15 @@ class Slicer:
                     self._paths: Optional[ak.Array] = ak.Array(parse_g_code(file=temp_path + ".gcode"))
 
                     if self._paths.layout.minmax_depth == (3, 3):
-                        if DISCRETIZE:
-                            discretized_paths: list[list[list[App.Vector]]] = []
-                            for layer in self._paths.to_list():
-                                layer_points: list[list[App.Vector]] = []
-                                for path in layer:
-                                    if len(path) > 1:
-                                        points_kernel: Points.Points = Points.Points()
-                                        points_kernel.addPoints(path)
-                                        layer_points.append(Part.makePolygon(path).discretize(Distance=2))
-                                discretized_paths.append(layer_points)
-
-                            discretized_paths: Optional[ak.Array] = ak.Array(discretized_paths)
-
-                            discretized_paths: Optional[ak.Array] = ak.zip(
-                                [discretized_paths[..., 0],
-                                 discretized_paths[..., 1],
-                                 discretized_paths[..., 2]]
-                            )
-
-                            self._paths: Optional[ak.Array] = discretized_paths
+                        discretize_distance: int = feature_obj.getPropertyByName("jDiscretize")
+                        if discretize_distance > 0:
+                            self._paths: Optional[ak.Array] = discretize_paths(self._paths, discretize_distance)
 
                         self._modified_paths: Optional[ak.Array] = ak.copy(self._paths)
 
                         offset: App.Vector = feature_obj.getPropertyByName("iAxisOffset")
                         if offset != App.Vector(0, 0, 0):
-                            first_items: ak.Array = ak.unflatten(
-                                ak.firsts(self._modified_paths, axis=-1), counts=1, axis=-1
-                            )
-                            first_x = first_items["0"] + offset.x
-                            first_y = first_items["1"] + offset.y
-                            first_z = first_items["2"] + offset.z
-                            first_items: ak.Array = ak.zip([first_x, first_y, first_z])
-
-                            last_indexes: ak.Array = ak.unflatten(
-                                ak.num(self._modified_paths, axis=-1) - 1, counts=1, axis=-1
-                            )
-                            last_items: ak.Array = self._modified_paths[last_indexes]
-                            last_x = last_items["0"] + offset.x
-                            last_y = last_items["1"] + offset.y
-                            last_z = last_items["2"] + offset.z
-                            last_items: ak.Array = ak.zip([last_x, last_y, last_z])
-
-                            self._modified_paths: ak.Array = ak.concatenate(
-                                [first_items, self._modified_paths, last_items], axis=-1
-                            )
+                            self._modified_paths: ak.Array = offset_path_borders(self._modified_paths, offset)
 
                         simplified: ak.Array = ak.flatten(self._modified_paths)
                         flat: ak.Array = ak.flatten(simplified)
