@@ -18,7 +18,7 @@ class Compiler:
         feature_obj.addProperty("App::PropertyEnumeration", "cMachine", "Settings", "Name of the target machine")
         feature_obj.addProperty("App::PropertyStringList", "dCustomStart", "Settings", "Start commands (path wise)")
         feature_obj.addProperty("App::PropertyStringList", "eCustomEnd", "Settings", "End commands (path wise)")
-        feature_obj.addProperty("App::PropertyBool", "fSilent", "Settings", "Prevent updating on recompute")
+        feature_obj.addProperty("App::PropertyBool", "fSilent", "Settings", "True prevents compiling on recompute")
 
         feature_obj.aSlicer = slicer
         feature_obj.bFile = ""
