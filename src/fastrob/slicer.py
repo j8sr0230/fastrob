@@ -72,11 +72,13 @@ class Slicer:
         feature_obj.addProperty("App::PropertyVector", "iAxisOffset", "Slicing", "Additional offset before/after path")
         feature_obj.addProperty("App::PropertyInteger", "jDiscretize", "Slicing", "Distance between path points")
         feature_obj.addProperty("App::PropertyIntegerList", "kSeamShifts", "Slicing", "Shift of the perimeter seams")
+
         feature_obj.addProperty("App::PropertyEnumeration", "aMode", "Filter", "Mode of the path filter")
         feature_obj.addProperty("App::PropertyInteger", "bLayerIndex", "Filter", "Layer to be filtered")
         feature_obj.setPropertyStatus("bLayerIndex", "UserEdit")
         feature_obj.addProperty("App::PropertyInteger", "cPointIndex", "Filter", "Position to be filtered")
         feature_obj.setPropertyStatus("cPointIndex", "UserEdit")
+
         feature_obj.addProperty("App::PropertyVectorList", "aLocalPoints", "Result", "Points of the filtered layer(s)")
         feature_obj.addProperty("App::PropertyVector", "bLocalPoint", "Result", "Point of the filtered point index")
         feature_obj.addProperty(
@@ -98,9 +100,11 @@ class Slicer:
         feature_obj.iAxisOffset = (0, 0, 10)
         feature_obj.jDiscretize = 0
         feature_obj.kSeamShifts = []
+
         feature_obj.aMode = ["None", "All", "Layer"]
         feature_obj.bLayerIndex = 0
         feature_obj.cPointIndex = 0
+
         feature_obj.aLocalPoints = [(0, 0, 0)]
         feature_obj.bLocalPoint = (0, 0, 0)
         feature_obj.cGlobalPoint = (0, 0, 0)
@@ -119,7 +123,8 @@ class Slicer:
         self._paths: Optional[ak.Array] = None
 
         if (hasattr(feature_obj, "bLayerIndex") and hasattr(feature_obj, "cPointIndex") and
-                hasattr(feature_obj, "aLocalPoints") and hasattr(feature_obj, "bLocalPoint")):
+                hasattr(feature_obj, "aLocalPoints") and hasattr(feature_obj, "bLocalPoint") and
+                hasattr(feature_obj, "cGlobalPoint")):
             feature_obj.bLayerIndex = 0
             feature_obj.cPointIndex = 0
             feature_obj.aLocalPoints = [(0, 0, 0)]
