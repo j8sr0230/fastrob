@@ -21,24 +21,28 @@ class RobotController:
     def __init__(self, feature_obj: Part.Feature, robot_grp: App.DocumentObjectGroup) -> None:
         feature_obj.addProperty("App::PropertyLink", "aRobot", "Kinematic", "Robot kinematic")
         feature_obj.addProperty("App::PropertyEnumeration", "bMode", "Kinematic", "Mode of the robot controller")
-        feature_obj.addProperty("App::PropertyVector", "aPoint", "Inverse", "Inverse kinematics target point")
-        feature_obj.addProperty("App::PropertyRotation", "bRotation", "Inverse", "Inverse kinematics target rotation")
+
         for axis_label in self.AXIS_LABELS:
             feature_obj.addProperty("App::PropertyAngle", axis_label, "Forward", "Target axis angle in degree")
 
+        feature_obj.addProperty("App::PropertyVector", "aPoint", "Inverse", "Inverse kinematics target point")
+        feature_obj.addProperty("App::PropertyRotation", "bRotation", "Inverse", "Inverse kinematics target rotation")
+
         feature_obj.aRobot = robot_grp
         feature_obj.bMode = ["Forward", "Inverse"]
-        feature_obj.aPoint = (1000, 0, 1000)
-        feature_obj.bRotation = App.Rotation(App.Vector(0, 1, 0), 90)
+
         for axis_label in self.AXIS_LABELS:
             setattr(feature_obj, axis_label, 0)
+
+        feature_obj.aPoint = (1000, 0, 1000)
+        feature_obj.bRotation = App.Rotation(App.Vector(0, 1, 0), 90)
 
         feature_obj.Proxy = self
         self._feature_obj: Part.Feature = feature_obj
 
         self._kinematic_parts: Optional[list[App.Part]] = None
         self._axis_offset_rad: Optional[np.ndarray] = None
-        self._chain: Optional[Chain] = None
+        self._ik_py_chain: Optional[Chain] = None
         self.init_kinematics(cast(App.Part, robot_grp.Group[0]))
 
     def init_kinematics(self, kinematic_part: App.Part) -> None:
@@ -49,7 +53,7 @@ class RobotController:
                 [self._kinematic_parts[i].Placement.Rotation.Angle for i in range(6)]
             )
 
-            self._chain: Optional[Chain] = kinematic_chain(self._kinematic_parts)
+            self._ik_py_chain: Optional[Chain] = kinematic_chain(self._kinematic_parts)
 
             for idx, axis_prop in enumerate(self.AXIS_LABELS):
                 if hasattr(self._feature_obj, axis_prop):
@@ -72,8 +76,8 @@ class RobotController:
             self.set_axis(-self._axis_offset_rad)
 
     def move_to(self, target_pos: np.ndarray, target_rot: np.ndarray) -> np.ndarray:
-        if self._chain:
-            target_axis_rad: np.ndarray = self._chain.inverse_kinematics(
+        if self._ik_py_chain:
+            target_axis_rad: np.ndarray = self._ik_py_chain.inverse_kinematics(
                 target_position=target_pos,
                 target_orientation=target_rot,
                 orientation_mode="all"
@@ -93,14 +97,9 @@ class RobotController:
             self._feature_obj: Part.Feature = feature_obj
             self._kinematic_parts: Optional[list[App.Part]] = None
             self._axis_offset_rad: Optional[np.ndarray] = None
-            self._chain: Optional[Chain] = None
+            self._ik_py_chain: Optional[Chain] = None
 
-        if hasattr(feature_obj, "aRobot") and self._kinematic_parts is None:
-            robot_grp: App.DocumentObjectGroup = cast(App.DocumentObjectGroup, feature_obj.getPropertyByName("aRobot"))
-            if hasattr(robot_grp, "Group") and len(robot_grp.getPropertyByName("Group")) > 0:
-                self.init_kinematics(cast(App.Part, robot_grp.Group[0]))
-
-        if prop == "aRobot":
+        if hasattr(feature_obj, "aRobot") and self._kinematic_parts is None or prop == "aRobot":
             robot_grp: App.DocumentObjectGroup = cast(App.DocumentObjectGroup, feature_obj.getPropertyByName("aRobot"))
             if hasattr(robot_grp, "Group") and len(robot_grp.getPropertyByName("Group")) > 0:
                 self.init_kinematics(cast(App.Part, robot_grp.Group[0]))
