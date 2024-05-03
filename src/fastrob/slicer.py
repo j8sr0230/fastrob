@@ -111,6 +111,10 @@ class Slicer:
         self._slider: Optional[ValueSlider] = None
         self._paths: Optional[ak.Array] = None
 
+    @property
+    def paths(self) -> Optional[ak.Array]:
+        return self._paths
+
     def reset_properties(self, feature_obj: Part.Feature) -> None:
         self._paths: Optional[ak.Array] = None
 

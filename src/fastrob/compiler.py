@@ -3,6 +3,8 @@ from typing import cast, Optional
 
 import importlib
 
+import awkward as ak
+
 import FreeCADGui as Gui
 import FreeCAD as App
 import Part
@@ -23,7 +25,33 @@ class Compiler:
 
     # noinspection PyMethodMayBeStatic
     def execute(self, feature_obj: Part.Feature) -> None:
-        print(feature_obj.getPropertyByName("aSlicer").aLocalPoints)
+        try:
+            with open(feature_obj.getPropertyByName("bFile"), "w") as file:
+                has_axis_offset: bool = False
+                if feature_obj.getPropertyByName("aSlicer").iAxisOffset != App.Vector(0, 0, 0):
+                    has_axis_offset = True
+                print(has_axis_offset)
+
+                paths: Optional[ak.Array] = feature_obj.getPropertyByName("aSlicer").Proxy.paths
+
+                for layer in paths.to_list():
+                    for path in layer:
+                        first: tuple[float, float, float] = path.pop(0)
+                        command = ("PTP {E6POS: X " + str(first[0]) + ", Y " + str(first[1]) + ", Z "
+                                   + str(first[2]) + ", A 0, B 90, C 0, E1 0, E2 0, E3 0, E4 0, E5 0, E6 0}")
+                        file.write(command + "\n")
+
+                        for idx, pos in enumerate(path):
+                            command = ("LIN {E6POS: X " + str(pos[0]) + ", Y " + str(pos[1]) + ", Z " + str(pos[2]) +
+                                       ", A 0, B 90, C 0, E1 0, E2 0, E3 0, E4 0, E5 0, E6 0}  C_DIS")
+                            file.write(command + "\n")
+
+                        file.write("OFF" + "\n")
+                        file.write("\n")
+
+            print("Result written to", feature_obj.getPropertyByName("bFile"), ".")
+        except FileNotFoundError as e:
+            print(e)
 
     # noinspection PyMethodMayBeStatic
     def dumps(self) -> Optional[str]:
