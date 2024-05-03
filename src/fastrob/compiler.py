@@ -8,6 +8,7 @@ import awkward as ak
 import FreeCADGui as Gui
 import FreeCAD as App
 import Part
+import numpy as np
 
 
 class Compiler:
@@ -40,6 +41,7 @@ class Compiler:
                 for layer in paths.to_list():
                     for path in layer:
                         for idx, pos in enumerate(path):
+                            pos: np.ndarray = np.round(pos, 2)
                             if has_axis_offset:
                                 if idx < 2:
                                     if feature_obj.getPropertyByName("cMachine") == "KUKA":
