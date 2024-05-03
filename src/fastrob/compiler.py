@@ -9,7 +9,6 @@ import Part
 
 
 class Compiler:
-
     def __init__(self, feature_obj: Part.Feature, slicer: Part.Feature) -> None:
         feature_obj.addProperty("App::PropertyLink", "aSlicer", "Input", "Tool path to be compiled")
         feature_obj.addProperty("App::PropertyFile", "bFile", "Input", "Name and path of manufacturing code")
