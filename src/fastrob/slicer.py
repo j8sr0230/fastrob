@@ -280,7 +280,8 @@ class Slicer:
 
         if prop in ("aMesh", "bHeight", "cWidth", "dPerimeters", "ePattern", "fDensity", "gAngle", "hAnchor",
                     "iAxisOffset", "jDiscretize", "kSeamShifts"):
-            feature_obj.aMode = "None"
+            if hasattr(feature_obj, "aMode"):
+                feature_obj.aMode = "None"
 
     def dumps(self) -> str:
         return ak.to_json(self._paths)
