@@ -21,7 +21,7 @@ if os.getcwd() not in sys.path:
 
 import utils
 importlib.reload(utils)
-from utils import (slice_stl, parse_g_code, discretize_paths, shift_closed_paths, path_axis_offset, clamp_path,
+from utils import (slice_stl, parse_g_code, discretize_paths, shift_paths, axis_offset, clamp_paths,
                    make_wires)  # noqa
 
 
@@ -71,12 +71,10 @@ class Slicer:
         feature_obj.addProperty("App::PropertyLength", "hAnchor", "Slicing", "Anchor length of the filling")
         feature_obj.addProperty("App::PropertyVector", "iAxisOffset", "Slicing", "Additional offset before/after path")
         feature_obj.addProperty("App::PropertyInteger", "jDiscretize", "Slicing", "Distance between path points")
-        feature_obj.addProperty("App::PropertyInteger", "kShift", "Slicing", "Shift of the perimeter seam")
+        feature_obj.addProperty("App::PropertyIntegerList", "kSeamShifts", "Slicing", "Shift of the perimeter seams")
         feature_obj.addProperty("App::PropertyEnumeration", "aMode", "Filter", "Mode of the path filter")
-        # feature_obj.addProperty("App::PropertyInteger", "bLayerIndex", "Filter", "Layer to be filtered")
         feature_obj.addProperty("App::PropertyInteger", "bLayerIndex", "Filter", "Layer to be filtered")
         feature_obj.setPropertyStatus("bLayerIndex", "UserEdit")
-        # feature_obj.addProperty("App::PropertyInteger", "cPointIndex", "Filter", "Position to be filtered")
         feature_obj.addProperty("App::PropertyInteger", "cPointIndex", "Filter", "Position to be filtered")
         feature_obj.setPropertyStatus("cPointIndex", "UserEdit")
         feature_obj.addProperty("App::PropertyVectorList", "aLocalPoints", "Result", "Points of the filtered layer(s)")
@@ -99,7 +97,7 @@ class Slicer:
         feature_obj.hAnchor = 10.
         feature_obj.iAxisOffset = (0, 0, 10)
         feature_obj.jDiscretize = 0
-        feature_obj.kShift = 0
+        feature_obj.kSeamShifts = []
         feature_obj.aMode = ["None", "All", "Layer"]
         feature_obj.bLayerIndex = 0
         feature_obj.cPointIndex = 0
@@ -112,7 +110,6 @@ class Slicer:
 
         self._slider: Optional[ValueSlider] = None
         self._paths: Optional[ak.Array] = None
-        self._modified_paths: Optional[ak.Array] = None
 
     def reset_properties(self, feature_obj: Part.Feature) -> None:
         self._paths: Optional[ak.Array] = None
@@ -153,13 +150,13 @@ class Slicer:
                         distance: int = feature_obj.getPropertyByName("jDiscretize")
                         temp_paths: Optional[ak.Array] = discretize_paths(self._paths, distance)
 
-                        shift: int = feature_obj.getPropertyByName("kShift")
-                        temp_paths: Optional[ak.Array] = shift_closed_paths(temp_paths, shift)
+                        shifts: list[int] = feature_obj.getPropertyByName("kSeamShifts")
+                        temp_paths: Optional[ak.Array] = shift_paths(temp_paths, shifts)
 
                         offset: App.Vector = feature_obj.getPropertyByName("iAxisOffset")
-                        self._modified_paths: ak.Array = path_axis_offset(temp_paths, offset)
+                        self._paths: Optional[ak.Array] = axis_offset(temp_paths, offset)
 
-                        simplified: ak.Array = ak.flatten(self._modified_paths)
+                        simplified: ak.Array = ak.flatten(self._paths)
                         flat: ak.Array = ak.flatten(simplified)
 
                         feature_obj.aLocalPoints = flat.to_list()
@@ -176,16 +173,16 @@ class Slicer:
 
     # noinspection PyPep8Naming
     def editProperty(self, prop: str) -> None:
-        if prop == "bLayerIndex" and self._modified_paths is not None:
+        if prop == "bLayerIndex" and self._paths is not None:
             if self._feature_obj.getPropertyByName("aMode") in ("All", "Layer"):
                 self._slider: ValueSlider = ValueSlider("Layer Index", self._feature_obj, prop,
-                                                        (0, len(self._modified_paths) - 1),
+                                                        (0, len(self._paths) - 1),
                                                         self._feature_obj.getPropertyByName("bLayerIndex"))
                 self._slider.show()
 
-        elif prop == "cPointIndex" and self._modified_paths is not None:
+        elif prop == "cPointIndex" and self._paths is not None:
             if self._feature_obj.getPropertyByName("aMode") == "All":
-                simplified: ak.Array = ak.flatten(self._modified_paths)
+                simplified: ak.Array = ak.flatten(self._paths)
                 flat: ak.Array = ak.flatten(simplified)
 
                 self._slider: ValueSlider = ValueSlider("Point Index", self._feature_obj, prop, (0, len(flat) - 1),
@@ -194,8 +191,8 @@ class Slicer:
 
             elif self._feature_obj.getPropertyByName("aMode") == "Layer":
                 layer_idx: int = self._feature_obj.getPropertyByName("bLayerIndex")
-                clamped_layer_idx = max(0, min(layer_idx, len(self._modified_paths) - 1))
-                layer: ak.Array = self._modified_paths[clamped_layer_idx]
+                clamped_layer_idx = max(0, min(layer_idx, len(self._paths) - 1))
+                layer: ak.Array = self._paths[clamped_layer_idx]
                 flat_layer: ak.Array = ak.flatten(layer)
 
                 self._slider: ValueSlider = ValueSlider("Point Index", self._feature_obj, prop,
@@ -208,15 +205,15 @@ class Slicer:
         if not hasattr(self, "_feature_obj"):
             self._feature_obj: Part.Feature = feature_obj
 
-        if prop == "cPointIndex" and self._modified_paths is not None:
+        if prop == "cPointIndex" and self._paths is not None:
             if hasattr(feature_obj, "aMode") and feature_obj.getPropertyByName("aMode") == "All":
                 point_idx: int = feature_obj.getPropertyByName("cPointIndex")
 
-                simplified: ak.Array = ak.flatten(self._modified_paths)
+                simplified: ak.Array = ak.flatten(self._paths)
                 flat: ak.Array = ak.flatten(simplified)
 
                 clamped_point_idx = max(0, min(point_idx, len(flat) - 1))
-                clamped: ak.Array = clamp_path(self._modified_paths, clamped_point_idx)
+                clamped: ak.Array = clamp_paths(self._paths, clamped_point_idx)
                 flat_clamped: ak.Array = ak.flatten(clamped)
 
                 if hasattr(feature_obj, "aLocalPoints"):
@@ -235,11 +232,11 @@ class Slicer:
                     layer_idx: int = feature_obj.getPropertyByName("bLayerIndex")
                     point_idx: int = feature_obj.getPropertyByName("cPointIndex")
 
-                    clamped_layer_idx = max(0, min(layer_idx, len(self._modified_paths) - 1))
-                    layer: ak.Array = self._modified_paths[clamped_layer_idx]
+                    clamped_layer_idx = max(0, min(layer_idx, len(self._paths) - 1))
+                    layer: ak.Array = self._paths[clamped_layer_idx]
                     flat_layer: ak.Array = ak.flatten(layer)
                     clamped_point_idx = max(0, min(point_idx, len(flat_layer) - 1))
-                    clamped: ak.Array = clamp_path(ak.Array([layer]), clamped_point_idx)
+                    clamped: ak.Array = clamp_paths(ak.Array([layer]), clamped_point_idx)
                     flat_clamped: ak.Array = ak.flatten(clamped)
 
                     if hasattr(feature_obj, "aLocalPoints"):
@@ -253,12 +250,12 @@ class Slicer:
                     feature_obj.Shape = make_wires(clamped)
                     App.ActiveDocument.recompute()
 
-        if prop == "bLayerIndex" and self._modified_paths is not None:
+        if prop == "bLayerIndex" and self._paths is not None:
             if hasattr(feature_obj, "aMode") and feature_obj.getPropertyByName("aMode") == "Layer":
                 layer_idx: int = feature_obj.getPropertyByName("bLayerIndex")
 
-                clamped_idx = max(0, min(layer_idx, len(self._modified_paths) - 1))
-                layer: ak.Array = self._modified_paths[clamped_idx]
+                clamped_idx = max(0, min(layer_idx, len(self._paths) - 1))
+                layer: ak.Array = self._paths[clamped_idx]
                 flat_layer: ak.Array = ak.flatten(layer)
 
                 if hasattr(feature_obj, "aLocalPoints"):
@@ -272,16 +269,12 @@ class Slicer:
                 feature_obj.Shape = make_wires(layer)
                 App.ActiveDocument.recompute()
 
-    def dumps(self) -> tuple[str, str]:
-        return ak.to_json(self._paths), ak.to_json(self._modified_paths)
+    def dumps(self) -> str:
+        return ak.to_json(self._paths)
 
-    def loads(self, state: tuple[str, str]) -> None:
-        paths_record: ak.Array = ak.from_json(state[0])
+    def loads(self, state: str) -> None:
+        paths_record: ak.Array = ak.from_json(state)
         self._paths: ak.Array = ak.zip([paths_record["0"], paths_record["1"], paths_record["2"]])
-        modified_paths_record: ak.Array = ak.from_json(state[1])
-        self._modified_paths: ak.Array = ak.zip(
-            [modified_paths_record["0"], modified_paths_record["1"], modified_paths_record["2"]]
-        )
         return None
 
 
