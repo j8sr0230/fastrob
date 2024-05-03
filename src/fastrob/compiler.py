@@ -15,10 +15,14 @@ class Compiler:
         feature_obj.addProperty("App::PropertyLink", "aSlicer", "Input", "Tool path to be compiled")
         feature_obj.addProperty("App::PropertyFile", "bFile", "Input", "Name and path of manufacturing code")
         feature_obj.addProperty("App::PropertyEnumeration", "cMachine", "Input", "Name of the target machine")
+        feature_obj.addProperty("App::PropertyStringList", "dCustomStart", "Input", "Custom start commands (path wise)")
+        feature_obj.addProperty("App::PropertyStringList", "eCustomEnd", "Input", "Custom end commands (path wise)")
 
         feature_obj.aSlicer = slicer
         feature_obj.bFile = ""
         feature_obj.cMachine = ["KUKA", "ABB"]
+        feature_obj.dCustomStart = []
+        feature_obj.eCustomEnd = []
 
         feature_obj.Proxy = self
         self._feature_obj: Part.Feature = feature_obj
@@ -30,23 +34,57 @@ class Compiler:
                 has_axis_offset: bool = False
                 if feature_obj.getPropertyByName("aSlicer").iAxisOffset != App.Vector(0, 0, 0):
                     has_axis_offset = True
-                print(has_axis_offset)
 
                 paths: Optional[ak.Array] = feature_obj.getPropertyByName("aSlicer").Proxy.paths
 
                 for layer in paths.to_list():
                     for path in layer:
-                        first: tuple[float, float, float] = path.pop(0)
-                        command = ("PTP {E6POS: X " + str(first[0]) + ", Y " + str(first[1]) + ", Z "
-                                   + str(first[2]) + ", A 0, B 90, C 0, E1 0, E2 0, E3 0, E4 0, E5 0, E6 0}")
-                        file.write(command + "\n")
-
                         for idx, pos in enumerate(path):
-                            command = ("LIN {E6POS: X " + str(pos[0]) + ", Y " + str(pos[1]) + ", Z " + str(pos[2]) +
-                                       ", A 0, B 90, C 0, E1 0, E2 0, E3 0, E4 0, E5 0, E6 0}  C_DIS")
-                            file.write(command + "\n")
+                            if has_axis_offset:
+                                if idx < 2:
+                                    if feature_obj.getPropertyByName("cMachine") == "KUKA":
+                                        cmd: str = ("PTP {E6POS: X " + str(pos[0]) + ", Y " + str(pos[1]) + ", Z " +
+                                                    str(pos[2]) +
+                                                    ", A 0, B 90, C 0, E1 0, E2 0, E3 0, E4 0, E5 0, E6 0}")
+                                    else:
+                                        cmd: str = ""
+                                    file.write(cmd + "\n")
 
-                        file.write("OFF" + "\n")
+                                    if idx == 1:
+                                        for cmd in feature_obj.getPropertyByName("dCustomStart"):
+                                            file.write(cmd + "\n")
+                                else:
+                                    if feature_obj.getPropertyByName("cMachine") == "KUKA":
+                                        cmd: str = ("LIN {E6POS: X " + str(pos[0]) + ", Y " + str(pos[1]) + ", Z " +
+                                                    str(pos[2]) +
+                                                    ", A 0, B 90, C 0, E1 0, E2 0, E3 0, E4 0, E5 0, E6 0} C_DIS")
+                                    else:
+                                        cmd: str = ""
+                                    file.write(cmd + "\n")
+
+                            else:
+                                if idx == 1:
+                                    if feature_obj.getPropertyByName("cMachine") == "KUKA":
+                                        cmd: str = ("PTP {E6POS: X " + str(pos[0]) + ", Y " + str(pos[1]) + ", Z " +
+                                                    str(pos[2]) +
+                                                    ", A 0, B 90, C 0, E1 0, E2 0, E3 0, E4 0, E5 0, E6 0}")
+                                    else:
+                                        cmd: str = ""
+                                    file.write(cmd + "\n")
+
+                                    for cmd in feature_obj.getPropertyByName("dCustomStart"):
+                                        file.write(cmd + "\n")
+                                else:
+                                    if feature_obj.getPropertyByName("cMachine") == "KUKA":
+                                        cmd: str = ("LIN {E6POS: X " + str(pos[0]) + ", Y " + str(pos[1]) + ", Z " +
+                                                    str(pos[2]) +
+                                                    ", A 0, B 90, C 0, E1 0, E2 0, E3 0, E4 0, E5 0, E6 0} C_DIS")
+                                    else:
+                                        cmd: str = ""
+                                    file.write(cmd + "\n")
+
+                        for cmd in feature_obj.getPropertyByName("eCustomEnd"):
+                            file.write(cmd + "\n")
                         file.write("\n")
 
             print("Result written to", feature_obj.getPropertyByName("bFile"), ".")
