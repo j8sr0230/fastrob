@@ -61,17 +61,17 @@ class ValueSlider(QtWidgets.QWidget):
 
 class Slicer:
     def __init__(self, feature_obj: Part.Feature, mesh: Mesh.Feature) -> None:
-        feature_obj.addProperty("App::PropertyLink", "aMesh", "Slicing", "Target mesh")
-        feature_obj.addProperty("App::PropertyLength", "bHeight", "Slicing", "Layer height of the slice")
-        feature_obj.addProperty("App::PropertyLength", "cWidth", "Slicing", "Width of the seams")
-        feature_obj.addProperty("App::PropertyInteger", "dPerimeters", "Slicing", "Number of perimeters")
-        feature_obj.addProperty("App::PropertyEnumeration", "ePattern", "Slicing", "Pattern of the filling")
-        feature_obj.addProperty("App::PropertyPercent", "fDensity", "Slicing", "Density of the filling")
-        feature_obj.addProperty("App::PropertyAngle", "gAngle", "Slicing", "Angle of the filling")
-        feature_obj.addProperty("App::PropertyLength", "hAnchor", "Slicing", "Anchor length of the filling")
-        feature_obj.addProperty("App::PropertyVector", "iAxisOffset", "Slicing", "Additional offset before/after path")
-        feature_obj.addProperty("App::PropertyInteger", "jDiscretize", "Slicing", "Distance between path points")
-        feature_obj.addProperty("App::PropertyIntegerList", "kSeamShifts", "Slicing", "Shift of the perimeter seams")
+        feature_obj.addProperty("App::PropertyLink", "aMesh", "Slicer", "Target mesh")
+        feature_obj.addProperty("App::PropertyLength", "bHeight", "Slicer", "Layer height of the slice")
+        feature_obj.addProperty("App::PropertyLength", "cWidth", "Slicer", "Width of the seams")
+        feature_obj.addProperty("App::PropertyInteger", "dPerimeters", "Slicer", "Number of perimeters")
+        feature_obj.addProperty("App::PropertyEnumeration", "ePattern", "Slicer", "Pattern of the filling")
+        feature_obj.addProperty("App::PropertyPercent", "fDensity", "Slicer", "Density of the filling")
+        feature_obj.addProperty("App::PropertyAngle", "gAngle", "Slicer", "Angle of the filling")
+        feature_obj.addProperty("App::PropertyLength", "hAnchor", "Slicer", "Anchor length of the filling")
+        feature_obj.addProperty("App::PropertyVector", "iAxisOffset", "Slicer", "Additional offset before/after path")
+        feature_obj.addProperty("App::PropertyInteger", "jDiscretize", "Slicer", "Distance between path points")
+        feature_obj.addProperty("App::PropertyIntegerList", "kSeamShifts", "Slicer", "Shift of the perimeter seams")
 
         feature_obj.addProperty("App::PropertyEnumeration", "aMode", "Filter", "Mode of the path filter")
         feature_obj.addProperty("App::PropertyInteger", "bLayerIndex", "Filter", "Layer to be filtered")

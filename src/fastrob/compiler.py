@@ -13,12 +13,12 @@ import numpy as np
 
 class Compiler:
     def __init__(self, feature_obj: Part.Feature, slicer: Part.Feature) -> None:
-        feature_obj.addProperty("App::PropertyLink", "aSlicer", "Settings", "Tool path to be compiled")
-        feature_obj.addProperty("App::PropertyFile", "bFile", "Settings", "Path to the machine code")
-        feature_obj.addProperty("App::PropertyEnumeration", "cMachine", "Settings", "Name of the target machine")
-        feature_obj.addProperty("App::PropertyStringList", "dCustomStart", "Settings", "Start commands (path wise)")
-        feature_obj.addProperty("App::PropertyStringList", "eCustomEnd", "Settings", "End commands (path wise)")
-        feature_obj.addProperty("App::PropertyBool", "fSilent", "Settings", "True prevents compiling on recompute")
+        feature_obj.addProperty("App::PropertyLink", "aSlicer", "Compiler", "Tool path to be compiled")
+        feature_obj.addProperty("App::PropertyFile", "bFile", "Compiler", "Path to the machine code")
+        feature_obj.addProperty("App::PropertyEnumeration", "cMachine", "Compiler", "Name of the target machine")
+        feature_obj.addProperty("App::PropertyStringList", "dCustomStart", "Compiler", "Start commands (path wise)")
+        feature_obj.addProperty("App::PropertyStringList", "eCustomEnd", "Compiler", "End commands (path wise)")
+        feature_obj.addProperty("App::PropertyBool", "fSilent", "Compiler", "True prevents compiling on recompute")
 
         feature_obj.aSlicer = slicer
         feature_obj.bFile = ""
