@@ -85,7 +85,7 @@ class Compiler:
 
                                 file.write("\n")
 
-                        print("Result written to", feature_obj.getPropertyByName("bFile"), ".")
+                        print("Result written to", feature_obj.getPropertyByName("bFile"))
             except FileNotFoundError as e:
                 print(e)
 
