@@ -9,11 +9,6 @@ DEF template()
 ;Experiment: -
 ;------------------------------------------------------
 
-;Init
-DECL INT i
-REAL DeltaH
-E6POS AktuellePos
-
 GLOBAL INTERRUPT DECL 3 WHEN $STOPMESS==TRUE DO IR_STOPM()
 INTERRUPT ON 3
 BAS(#INITMOV,0)
