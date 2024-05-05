@@ -1,0 +1,42 @@
+&ACCESS RVP
+&REL 1
+&PARAM TEMPLATE = C:\KRC\Roboter\Template\vorgabe
+&PARAM EDITMASK = *
+DEF template()
+;Author: -
+;Date: -
+;Tool: -
+;Experiment: -
+;------------------------------------------------------
+
+;Init
+DECL INT i
+REAL DeltaH
+E6POS AktuellePos
+
+GLOBAL INTERRUPT DECL 3 WHEN $STOPMESS==TRUE DO IR_STOPM()
+INTERRUPT ON 3
+BAS(#INITMOV,0)
+
+$BWDSTART = FALSE
+PDAT_ACT = {VEL 20,ACC 100,APO_DIST 50}
+BAS(#PTP_DAT)
+FDAT_ACT = {TOOL_NO 1,BASE_NO 1,IPO_FRAME #BASE}
+BAS(#FRAMES)
+BAS(#VEL_PTP,5)
+PTP {A1 0,A2 -90,A3 90,A4 0,A5 90,A6 0,E1 0,E2 0,E3 0,E4 0}
+
+$ADVANCE=3
+$OUT[2]=TRUE ;Robot read
+$OUT[1] = FALSE ; Power source off
+;------------------------------------------------------
+
+;Movement comments
+$VEL.CP=0.0057 ;Linear speed
+
+
+;------------------------------------------------------
+
+;Homeposition
+PTP {E6AXIS: A1 0, A2 -90, A3 90, A4 0, A5 90, A6 0, E1 0, E2 0, E3 0, E4 0} C_PTP
+END
