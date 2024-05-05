@@ -40,6 +40,7 @@ def slice_stl(file: str, layer_height: float, seam_width: float, perimeters: int
             "--infill-anchor-max " + str(infill_anchor_max) + " " +
             "--skirts 0 " +
             "--filament-retract-length 0 " +
+            "--seam-position rear" +
 
             # [ file.stl ... ]
             file
