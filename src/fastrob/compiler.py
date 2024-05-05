@@ -68,23 +68,20 @@ class Compiler:
                                             file.write(cmd + "\n")
 
                                     else:
-                                        if idx == 1:
+                                        if idx == 0:
                                             cmd: str = point_move(feature_obj.getPropertyByName("cMachine"), pos)
                                             file.write(cmd + "\n")
 
                                             for cmd in feature_obj.getPropertyByName("dCustomStart"):
                                                 file.write(cmd + "\n")
 
-                                        elif idx < len(path) - 1:
+                                        elif idx < len(path):
                                             cmd: str = linear_move(feature_obj.getPropertyByName("cMachine"), pos)
                                             file.write(cmd + "\n")
 
-                                        else:
-                                            for cmd in feature_obj.getPropertyByName("eCustomEnd"):
-                                                file.write(cmd + "\n")
-
-                                            cmd: str = point_move(feature_obj.getPropertyByName("cMachine"), pos)
-                                            file.write(cmd + "\n")
+                                            if idx == len(path) - 1:
+                                                for cmd in feature_obj.getPropertyByName("eCustomEnd"):
+                                                    file.write(cmd + "\n")
 
                                 file.write("\n")
 
