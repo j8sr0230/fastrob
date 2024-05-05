@@ -8,7 +8,8 @@ import awkward as ak
 import FreeCADGui as Gui
 import FreeCAD as App
 import Part
-import numpy as np
+
+from utils import linear_move, point_move
 
 
 class Compiler:
@@ -45,60 +46,46 @@ class Compiler:
                         for layer in paths.to_list():
                             for path in layer:
                                 for idx, pos in enumerate(path):
-                                    pos: np.ndarray = np.round(pos, 2)
+
                                     if has_axis_offset:
                                         if idx < 2:
-                                            if feature_obj.getPropertyByName("cMachine") == "KUKA":
-                                                cmd: str = (
-                                                        "PTP {E6POS: X " + str(pos[0]) + ", Y " + str(pos[1]) +
-                                                        ", Z " + str(pos[2]) +
-                                                        ", A 0, B 90, C 0, E1 0, E2 0, E3 0, E4 0, E5 0, E6 0}"
-                                                )
-                                            else:
-                                                cmd: str = ""
+                                            cmd: str = point_move(feature_obj.getPropertyByName("cMachine"), pos)
                                             file.write(cmd + "\n")
 
                                             if idx == 1:
                                                 for cmd in feature_obj.getPropertyByName("dCustomStart"):
                                                     file.write(cmd + "\n")
+
+                                        elif idx < len(path) - 1:
+                                            cmd: str = linear_move(feature_obj.getPropertyByName("cMachine"), pos)
+                                            file.write(cmd + "\n")
+
                                         else:
-                                            if feature_obj.getPropertyByName("cMachine") == "KUKA":
-                                                cmd: str = (
-                                                        "LIN {E6POS: X " + str(pos[0]) + ", Y " + str(pos[1]) +
-                                                        ", Z " + str(pos[2]) +
-                                                        ", A 0, B 90, C 0, E1 0, E2 0, E3 0, E4 0, E5 0, E6 0} C_DIS"
-                                                )
-                                            else:
-                                                cmd: str = ""
+                                            for cmd in feature_obj.getPropertyByName("eCustomEnd"):
+                                                file.write(cmd + "\n")
+
+                                            cmd: str = point_move(feature_obj.getPropertyByName("cMachine"), pos)
                                             file.write(cmd + "\n")
 
                                     else:
                                         if idx == 1:
-                                            if feature_obj.getPropertyByName("cMachine") == "KUKA":
-                                                cmd: str = (
-                                                        "PTP {E6POS: X " + str(pos[0]) + ", Y " + str(pos[1]) +
-                                                        ", Z " + str(pos[2]) +
-                                                        ", A 0, B 90, C 0, E1 0, E2 0, E3 0, E4 0, E5 0, E6 0}"
-                                                )
-                                            else:
-                                                cmd: str = ""
+                                            cmd: str = point_move(feature_obj.getPropertyByName("cMachine"), pos)
                                             file.write(cmd + "\n")
 
                                             for cmd in feature_obj.getPropertyByName("dCustomStart"):
                                                 file.write(cmd + "\n")
-                                        else:
-                                            if feature_obj.getPropertyByName("cMachine") == "KUKA":
-                                                cmd: str = (
-                                                        "LIN {E6POS: X " + str(pos[0]) + ", Y " + str(pos[1]) +
-                                                        ", Z " + str(pos[2]) +
-                                                        ", A 0, B 90, C 0, E1 0, E2 0, E3 0, E4 0, E5 0, E6 0} C_DIS"
-                                                )
-                                            else:
-                                                cmd: str = ""
+
+                                        elif idx < len(path) - 1:
+                                            cmd: str = linear_move(feature_obj.getPropertyByName("cMachine"), pos)
                                             file.write(cmd + "\n")
 
-                                for cmd in feature_obj.getPropertyByName("eCustomEnd"):
-                                    file.write(cmd + "\n")
+                                        else:
+                                            for cmd in feature_obj.getPropertyByName("eCustomEnd"):
+                                                file.write(cmd + "\n")
+
+                                            cmd: str = point_move(feature_obj.getPropertyByName("cMachine"), pos)
+                                            file.write(cmd + "\n")
+
                                 file.write("\n")
 
                         print("Result written to", feature_obj.getPropertyByName("bFile"), ".")

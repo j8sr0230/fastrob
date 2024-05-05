@@ -236,3 +236,31 @@ def kinematic_part_iterator(kinematic_part: App.Part) -> Iterator:
     if hasattr(kinematic_part, "Group") and len(kinematic_part.getPropertyByName("Group")) > 0:
         for next_item in kinematic_part_iterator(kinematic_part.Group[0]):
             yield next_item
+
+
+def linear_move(machine: str, pos: tuple[float, float, float]) -> str:
+    if machine == "KUKA":
+        cmd: str = "LIN {E6POS: X " + str(pos[0]) + ", Y " + str(pos[1]) + ", Z " + str(pos[2])
+        cmd += ", A 0, B 90, C 0} C_DIS"
+
+    elif machine == "ABB":
+        cmd: str = ""
+
+    else:
+        cmd: str = ""
+
+    return cmd
+
+
+def point_move(machine: str, pos: tuple[float, float, float]) -> str:
+    if machine == "KUKA":
+        cmd: str = "PTP {E6POS: X " + str(pos[0]) + ", Y " + str(pos[1]) + ", Z " + str(pos[2])
+        cmd += ", A 0, B 90, C 0}"
+
+    elif machine == "ABB":
+        cmd: str = ""
+
+    else:
+        cmd: str = ""
+
+    return cmd
